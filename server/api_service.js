@@ -59,13 +59,16 @@ ApiService.prototype._initModels = function() {
     var Supplier = self._db.createModel('suppliers', {
         name: type.string(),
         email: type.string(),
-        phoneNumbers: [type.string()]
+        phoneNumbers: [type.string()],
+        createdAt: type.date().default(self._db.r.now())
     });
 
     var Quote = self._db.createModel('quotes', {
+        delivery: type.string(),
         cost: type.number(),
         scanUrl: type.string(),
-        supplierId: type.string()
+        supplierId: type.string(),
+        createdAt: type.date().default(self._db.r.now())
     });
 
     var Invoice = self._db.createModel('invoices', {
@@ -73,7 +76,8 @@ ApiService.prototype._initModels = function() {
         scanUrl: type.string(),
         paidAt: type.date(),
         quoteId: type.string(),
-        supplierId: type.string()
+        supplierId: type.string(),
+        createdAt: type.date().default(self._db.r.now())
     });
 
     //
@@ -191,10 +195,12 @@ ApiService.prototype.getResourceTypeByTableName = function(tableName) {
     return tableName.substring(0, tableName.length - 1);
 };
 
-ApiService.prototype.serializeRecordsToResources = function(records, query) {
+ApiService.prototype.serializeRecordsToResources = function(records, fieldsForTypes) {
 
     var self = this;
     var resources = [];
+
+    records = self.asArray(records);
 
     _.forEach(records, function(record) {
 
@@ -204,30 +210,54 @@ ApiService.prototype.serializeRecordsToResources = function(records, query) {
         // get the resource type
         var resourceType = self.getResourceTypeByTableName(record.getModel().getTableName());
 
-        // get the fields for this type
-        var fieldsForType = query.fields[resourceType];
-
         var resource = {
             type: resourceType,
             id: record.id,
-            attributes: self.getRecordAttributes(record, joins, fieldsForType)
+            attributes: self.getRecordAttributes(record,
+                joins,
+                fieldsForTypes ? fieldsForTypes[resourceType] : undefined)
         };
 
         // iterate through the joins
         _.forOwn(joins, function(joinInfo, joinField) {
 
+            // this may be overridden, so copy it
+            var joinName = joinField;
+
+            // get the join field name by join type
+            if (joinInfo.type === 'belongsTo')
+                joinField = joinInfo.leftKey;
+
             // iterate through relations
-            _.forEach(self.asArray(record[joinField]), function(joinedRecord) {
+            _.forEach(self.asArray(record[joinField]), function(joinedRecordId) {
 
-                // create relationships if doesn't
+                // create relationships if doesn't already exist
                 if (!resource.relationships)
-                    resource.relationships = [];
+                    resource.relationships = {};
 
-                // shove a relationship element
-                resource.relationships.push({
-                    type: self.getResourceTypeByTableName(joinInfo.model.getTableName()),
-                    id: joinedRecord.id
-                });
+                // the relationship to add
+                var relationship = {
+                    data: {
+                        type: self.getResourceTypeByTableName(joinInfo.model.getTableName()),
+                        id: joinedRecordId.id || joinedRecordId
+                    }
+                };
+
+                // if this is a 1:1 join, just shove it as a key, otherwise add it to a list
+                if (joinInfo.type === 'belongsTo') {
+
+                    delete resource.attributes[joinField];
+                    resource.relationships[joinName] = relationship;
+
+                } else {
+
+                    // create a field relationship (e.g. relationships: {quotes: []}) if it doesn't already exist
+                    if (!resource.relationships[joinName])
+                        resource.relationships[joinName] = [];
+
+                    // shove a relationship element
+                    resource.relationships[joinName].push(relationship);
+                }
             });
         });
 
@@ -243,16 +273,23 @@ ApiService.prototype.serialize = function(root, model, query) {
     var encodedResponse = {};
     var joinedRecords = [];
 
+    // get which fields we need to return for each type
+    var fieldsForTypes = query.fields;
+
     // to make things simple, always work with an array
     root = self.asArray(root);
 
     // recurse into the tree, and flatten all joined records, keyed by their model
     self.extractJoinedRecords(root, model, joinedRecords);
 
-    encodedResponse.includes = self.serializeRecordsToResources(joinedRecords, query);
+    // remove duplicates (use only id)
+    joinedRecords = _.uniq(joinedRecords, 'id');
+
+    // iterate over all the joined records and serialize them into resources, under "include"
+    encodedResponse.included = self.serializeRecordsToResources(joinedRecords, fieldsForTypes);
 
     // iterate over roots, encode as a resource into the data
-    encodedResponse.data = self.serializeRecordsToResources(root, query);
+    encodedResponse.data = self.serializeRecordsToResources(root, fieldsForTypes);
 
     return encodedResponse;
 };
@@ -305,14 +342,18 @@ ApiService.prototype.parseQuery = function(query) {
     return parsedQuery;
 };
 
+//
+// Routes
+//
+
 ApiService.prototype.handleGetList = function(model, req, res, next) {
 
     var self = this;
     var query = self.parseQuery(req.query);
 
-    model.getJoin(query.join).run().then(function(dbResults) {
+    model.getJoin(query.join).run().then(function(matchingRecords) {
 
-        res.json(self.serialize(dbResults, model, query));
+        res.json(self.serialize(matchingRecords, model, query));
 
     }).error(self.handleError(res));
 };
@@ -322,10 +363,10 @@ ApiService.prototype.handleGetDetails = function(model, req, res, next) {
     var self = this;
     var query = self.parseQuery(req.query);
 
-    model.get(req.params.id).getJoin(query.join).run().then(function(dbResult) {
+    model.get(req.params.id).getJoin(query.join).run().then(function(matchingRecord) {
 
         // don't pass a data array, just pass the data
-        var resource = self.serialize(dbResult, model, query);
+        var resource = self.serialize(matchingRecord, model, query);
         if (resource.data.length) {
             resource.data = resource.data[0];
         }
@@ -335,13 +376,65 @@ ApiService.prototype.handleGetDetails = function(model, req, res, next) {
     }).error(self.handleError(res));
 };
 
+// this currently supports only 1:1 relationships
+function deserializeResourceToRecord(model, resource) {
+
+    // first, shove attributes
+    var record = resource.data.attributes;
+
+    // iterate through relationships, if any, and simply set [relationshipField]Id into the
+    // resource
+    _.forOwn(resource.data.relationships, function(relationship, relationshipName) {
+        record[relationshipName + 'Id'] = relationship.data.id;
+    });
+
+    return record;
+}
+
 ApiService.prototype.handleCreate = function(model, req, res, next) {
 
     var self = this;
-    var instance = new model(req.body);
+    var instance = new model(deserializeResourceToRecord(model, req.body));
 
-    instance.save().then(function(dbResult) {
-        res.json(dbResult);
+    instance.save().then(function(createdRecord) {
+
+        // TODO: for now, take the first element. However, may specify to serializeRecordsToResources
+        // how we want to receive the result in the future
+        res.json({data: self.serializeRecordsToResources(createdRecord)[0]});
+
+    }).error(self.handleError(res));
+};
+
+ApiService.prototype.handleUpdate = function(model, req, res, next) {
+
+    var self = this;
+
+    model.get(req.params.id).then(function(matchingRecord) {
+
+        matchingRecord.merge(deserializeResourceToRecord(model, req.body)).save().then(function(updatedRecord) {
+
+            res.sendStatus(204);
+        });
+
+    }).error(self.handleError(res));
+};
+
+ApiService.prototype.handleDelete = function(model, req, res, next) {
+
+    var self = this;
+
+    model.get(req.params.id).then(function(matchingRecord) {
+
+        matchingRecord.delete().then(function(deletedRecord) {
+
+            // if delete occurred successfully, saved flag should be turned off
+            if (!deletedRecord.isSaved()) {
+                res.sendStatus(204);
+            } else {
+                res.sendStatus(500);
+            }
+        })
+
     }).error(self.handleError(res));
 }
 
@@ -360,6 +453,14 @@ ApiService.prototype.registerResourceRoutes = function(name, model) {
 
     self.app.route(root).post(function(req, res, next) {
         self.handleCreate(model, req, res, next);
+    });
+
+    self.app.route(root + '/:id').patch(function(req, res, next) {
+        self.handleUpdate(model, req, res, next);
+    });
+
+    self.app.route(root + '/:id').delete(function(req, res, next) {
+        self.handleDelete(model, req, res, next);
     });
 };
 

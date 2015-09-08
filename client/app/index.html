@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <title>Angular Material - Starter App</title>
+
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+  <link rel='stylesheet' href='http://fonts.googleapis.com/css?family=Roboto:400,500,700,400italic'>
+  <link rel="stylesheet" href="./bower_components/angular-material/angular-material.css"/>
+  <link rel="stylesheet" href="./bower_components/ng-mfb/mfb/dist/mfb.css"/>
+  <link rel="stylesheet" href="./bower_components/angular-material-data-table/dist/md-data-table.min.css"/>
+  <link rel="stylesheet" href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+  <link rel="stylesheet" href="assets/app.css"/>
+</head>
+
+<body ng-app="starterApp" layout="row" ng-controller="PovertyController as vm">
+  <div flex layout="column" tabIndex="-1" role="main" class="md-whiteframe-z2">
+    <md-content class="md-padding">
+      <md-card>
+
+        <md-toolbar>
+          <div class="md-toolbar-tools">
+            <h2>
+              <span>Poverty :-(</span>
+            </h2>
+            <span flex></span>
+            <md-button class="md-icon-button">
+              <md-icon md-font-icon="ion-navicon" aria-label="" style="font-size: 24px"></md-icon>
+            </md-button>
+          </div>
+        </md-toolbar>
+
+        <md-tabs md-dynamic-height md-border-bottom>
+
+          <md-tab label="Suppliers">
+            <div ng-include src="'src/suppliers/suppliers.tmpl.html'"></div>
+          </md-tab>
+
+          <md-tab label="Quotes">
+            <div ng-include src="'src/quotes/quotes.tmpl.html'"></div>
+          </md-tab>
+
+          <md-tab label="Invoices">
+            <div ng-include src="'src/invoices/invoices.tmpl.html'"></div>
+          </md-tab>
+
+        </md-tabs>
+      </md-card>
+    </md-content>
+  </div>
+
+  <script type="text/javascript" src="./bower_components/angular/angular.js"></script>
+  <script type="text/javascript" src="./bower_components/angular-animate/angular-animate.js"></script>
+  <script type="text/javascript" src="./bower_components/angular-aria/angular-aria.js"></script>
+  <script type="text/javascript" src="./bower_components/ng-mfb/src/mfb-directive.js"></script>
+  <script type="text/javascript" src="./bower_components/pluralize/pluralize.js"></script>
+  <script type="text/javascript" src="./bower_components/sprintf/dist/sprintf.min.js"></script>
+  <script type="text/javascript" src="./bower_components/sprintf/dist/angular-sprintf.min.js"></script>
+  <script type="text/javascript" src="./bower_components/lodash/lodash.js"></script>
+  <script type="text/javascript" src="./bower_components/restangular/dist/restangular.js"></script>
+  <script type="text/javascript" src="./bower_components/angular-material/angular-material.js"></script>
+  <script type="text/javascript" src="./bower_components/angular-material-data-table/dist/md-data-table.min.js"></script>
+
+  <script src="./src/poverty.js"></script>
+  <script src="./src/common/object_dialog.service.js"></script>
+  <script src="./src/dashboard/dashboard.controller.js"></script>
+  <script src="./src/suppliers/suppliers.controller.js"></script>
+  <script src="./src/quotes/quotes.controller.js"></script>
+  <script src="./src/invoices/invoices.controller.js"></script>
+
+  <nav
+    mfb-menu position="br"
+    effect="slidein"
+    active-icon="ion-close-round"
+    resting-icon="ion-plus-round"
+    toggling-method="click"
+    menu-state="vm.menuState">
+    <button
+      ng-repeat="button in vm.menuButtons"
+      mfb-button icon="{{button.icon}}"
+      ng-click="vm.onMenuItemClick(button)"
+      label="{{button.label}}"></button>
+  </nav>
+
+  <script type="text/javascript">
+
+    angular
+    .module('starterApp', ['ngMaterial', 'ng-mfb', 'poverty'])
+    .config(function($mdThemingProvider){
+
+      $mdThemingProvider.theme('default')
+      .primaryPalette('blue')
+      .accentPalette('brown');
+
+    });
+
+  </script>
+
+</body>
+</html>

@@ -7,7 +7,7 @@ var config = require('./config.js');
 function initializeLogger(daemon) {
 
     function serializeRequest(request) {
-        return {method: request.method, url: request.url}
+        return {method: request.method, url: request.url, body: request.body}
     };
 
     function serializeResponse(response) {

@@ -1,0 +1,44 @@
+<md-dialog aria-label="Quote">
+  <form>
+    <md-toolbar>
+      <div class="md-toolbar-tools">
+        <h4>Quote</h4>
+        <span flex></span>
+      </div>
+    </md-toolbar>
+
+    <div layout="column">
+
+      <md-content md-theme="docs-dark" layout-padding layout="row" layout-sm="column">
+        <md-input-container style="width: 100%">
+          <label>Delivery</label>
+          <input ng-model="vm.resource.attributes.delivery">
+        </md-input-container>
+      </md-content>
+
+      <md-content layout="row" layout-padding>
+        <md-select ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier" style="width: 70%">
+          <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">{{supplier.attributes.name}}</md-option>
+        </md-select>
+        <md-input-container>
+          <label>Cost</label>
+          <input ng-model="vm.resource.attributes.cost" type="number" min="0">
+        </md-input-container>
+      </md-content>
+
+      <div class="md-actions" layout="row">
+        <span flex></span>
+        <md-button ng-show="vm.mode=='update'" ng-click="vm.close('delete')" style="color: red">
+          Delete
+        </md-button>
+        <md-button ng-click="vm.close('cancel')" >
+          Cancel
+        </md-button>
+        <md-button ng-click="vm.close('ok')" style="margin-right:20px;">
+          {{vm.mode}}
+        </md-button>
+      </div>
+
+    </div>
+  </form>
+</md-dialog>

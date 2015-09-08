@@ -1,0 +1,49 @@
+<md-dialog aria-label="Supplier">
+  <form>
+    <md-toolbar>
+      <div class="md-toolbar-tools">
+        <h4>Supplier</h4>
+        <span flex></span>
+      </div>
+    </md-toolbar>
+
+    <div layout="column">
+
+      <md-content md-theme="docs-dark" layout-padding layout="row" layout-sm="column">
+        <md-input-container style="width: 100%">
+          <label>Name</label>
+          <input ng-model="vm.resource.attributes.name">
+        </md-input-container>
+      </md-content>
+
+      <md-content layout="row" layout-padding>
+        <div layout layout-sm="column">
+          <md-input-container>
+            <label>Phone number</label>
+            <input ng-model="vm.resource.phoneNumber">
+          </md-input-container>
+        </div>
+        <div layout layout-sm="column">
+          <md-input-container>
+            <label>Email</label>
+            <input ng-model="vm.resource.attributes.email" type="email">
+          </md-input-container>
+        </div>
+      </md-content>
+
+      <div class="md-actions" layout="row">
+        <span flex></span>
+        <md-button ng-show="vm.mode=='update'" ng-click="vm.close('delete')" style="color: red">
+          Delete
+        </md-button>
+        <md-button ng-click="vm.close('cancel')" >
+          Cancel
+        </md-button>
+        <md-button ng-click="vm.close('ok')" style="margin-right:20px;" >
+          {{vm.mode}}
+        </md-button>
+      </div>
+
+    </div>
+  </form>
+</md-dialog>
