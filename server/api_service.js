@@ -10,6 +10,7 @@ var request = require('request');
 var passport = require('passport');
 var passportGoogleOauth = require('passport-google-oauth');
 var google = require('googleapis');
+var fs = require('fs');
 
 function ApiService(logger, db, rootUrl, scant_address, authInfo) {
 
@@ -34,8 +35,10 @@ function ApiService(logger, db, rootUrl, scant_address, authInfo) {
 
 ApiService.prototype.listen = function(port) {
 
-    this._logger.info({port: port}, 'Listening')
-    this._app.listen(port);
+    var self = this;
+
+    self._logger.info({port: port}, 'Listening')
+    self._app.listen(port);
 };
 
 ApiService.prototype._initializeExpress = function() {
@@ -495,10 +498,52 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
 
     var self = this;
 
+    // get the user for this session TODO
+    var user = self._users['some_guy@gmail.com'];
+
+    self._logger.debug({user: user.name}, 'Submitting scan request');
+
     // create the scan, using a scant service
-    request.post(self._scant_address + '/scans', function(error, response, body) {
+    request.post(self._scant_address + '/scans', {encoding: null}, function(error, response, scanBody) {
+
         if (!error && response.statusCode == 200) {
-            console.log(body);
+
+            // get the file name from the original POST
+            var fileName = req.body.data.attributes.name || util.format('scan_%s', 'temp');
+
+            // upload this to google drive
+            user.googleApi.drive.files.insert({
+                resource: {
+                    parents: [{
+                        "kind": "drive#fileLink",
+                        "id": user.povertyFolderId
+                    }],
+                    title: fileName
+                },
+                media: {
+                    mimeType: 'application/pdf',
+                    body: scanBody
+                }
+            }, function(error, resource) {
+
+                if (error) {
+                    return self._logger.warn({user: user.name, error: error}, 'Failed to write scan');
+                }
+
+                self._logger.debug({user: user.name, id: resource.id}, 'Scan submitted successfully');
+
+                // return the result
+                res.json({
+                    data: {
+                        id: resource.id,
+                        type: 'scan',
+                        attributes: {
+                            url: resource.alternateLink,
+                            size: resource.fileSize
+                        }
+                    }
+                });
+            });
         }
     });
 };
@@ -527,7 +572,7 @@ ApiService.prototype._findUserByEmail = function(email, callback) {
     else
         callback(new Error('Failed to find user with email')); */
 
-    return self._users[0];
+    callback(null, self._users['some_guy@gmail.com']);
 };
 
 ApiService.prototype._onUserAuthentication = function(user) {
@@ -536,15 +581,16 @@ ApiService.prototype._onUserAuthentication = function(user) {
 
     self._logger.debug({user: user.name}, 'User logged in');
 
+    // create the google API for the user
+    self._createGoogleApi(user);
+
     // create application folder for user
     self._createPovertyFolder(user);
 };
 
-ApiService.prototype._createPovertyFolder = function(user) {
+ApiService.prototype._createGoogleApi = function(user) {
 
     var self = this;
-
-    self._logger.debug({user: user.name}, 'Getting poverty folder');
 
     // create an oauth client with pre-loaded tokens
     var oauthInfo = self._getOauthInfo();
@@ -557,10 +603,18 @@ ApiService.prototype._createPovertyFolder = function(user) {
         refresh_token: user.refreshToken
     };
 
-    var drive = google.drive({ version: 'v2', auth: oauth2Client });
+    user.googleApi = {};
+    user.googleApi.drive = google.drive({version: 'v2', auth: oauth2Client});
+}
+
+ApiService.prototype._createPovertyFolder = function(user) {
+
+    var self = this;
+
+    self._logger.debug({user: user.name}, 'Getting poverty folder');
 
     // look for the poverty application directory
-    drive.files.list({
+    user.googleApi.drive.files.list({
         q: 'title = ".poverty"'
     }, function(error, resource) {
 
@@ -569,7 +623,7 @@ ApiService.prototype._createPovertyFolder = function(user) {
 
             self._logger.debug({user: user.name}, 'Poverty folder doesn\'t exist, creating');
 
-            drive.files.insert({
+            user.googleApi.drive.files.insert({
                 resource: {
                     title: '.poverty',
                     mimeType: 'application/vnd.google-apps.folder'
