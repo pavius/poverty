@@ -6,37 +6,52 @@ var util = require('util');
 var express = require('express');
 var bodyParser = require('body-parser');
 var onResponse = require('on-response');
+var request = require('request');
+var passport = require('passport');
+var passportGoogleOauth = require('passport-google-oauth');
+var google = require('googleapis');
 
-function ApiService(logger, db) {
+function ApiService(logger, db, rootUrl, scant_address, authInfo) {
 
     this._logger = logger;
     this._db = db;
+    this._scant_address = scant_address;
+    this._authInfo = authInfo;
+    this._rootUrl = rootUrl;
+
+    // create users
+    this._users = {
+        'some_guy@gmail.com': {}
+    };
 
     this._initializeExpress();
+    this._initializeAuthentication();
     this._initModels();
     this._initRoutes();
+
+    this._logger.debug({scant_address: this._scant_address}, 'Initialized');
 }
 
 ApiService.prototype.listen = function(port) {
 
     this._logger.info({port: port}, 'Listening')
-    this.app.listen(port);
+    this._app.listen(port);
 };
 
 ApiService.prototype._initializeExpress = function() {
 
     var self = this;
 
-    self.app = express();
+    self._app = express();
 
     // parse json
-    self.app.use(bodyParser.json({limit: '10mb'}));
+    self._app.use(bodyParser.json({limit: '10mb'}));
 
     // parse url encoded params
-    self.app.use(bodyParser.urlencoded());
+    self._app.use(bodyParser.urlencoded());
 
     // log all requests and their responses
-    self.app.use(function(request, response, next) {
+    self._app.use(function(request, response, next) {
 
         onResponse(request, response, function (error) {
             if (error)
@@ -105,8 +120,14 @@ ApiService.prototype._initRoutes = function() {
 
     var self = this;
 
+    // create an invoice scan
+    self._app.route('/invoices/:id/scans').post(function(request, response) {
+
+        self._handleCreateScan(null, request, response);
+    });
+
     // route everything that hasn't been caught
-    self.app.route('/*').all(function(request, response) {
+    self._app.route('/*').all(function(request, response) {
 
         response.status(403).end();
     });
@@ -195,7 +216,7 @@ ApiService.prototype._getResourceTypeByTableName = function(tableName) {
     return tableName.substring(0, tableName.length - 1);
 };
 
-ApiService.prototype.__serializeRecordsToResources = function(records, fieldsForTypes) {
+ApiService.prototype._serializeRecordsToResources = function(records, fieldsForTypes) {
 
     var self = this;
     var resources = [];
@@ -286,10 +307,10 @@ ApiService.prototype._serialize = function(root, model, query) {
     joinedRecords = _.uniq(joinedRecords, 'id');
 
     // iterate over all the joined records and _serialize them into resources, under "include"
-    encodedResponse.included = self.__serializeRecordsToResources(joinedRecords, fieldsForTypes);
+    encodedResponse.included = self._serializeRecordsToResources(joinedRecords, fieldsForTypes);
 
     // iterate over roots, encode as a resource into the data
-    encodedResponse.data = self.__serializeRecordsToResources(root, fieldsForTypes);
+    encodedResponse.data = self._serializeRecordsToResources(root, fieldsForTypes);
 
     return encodedResponse;
 };
@@ -398,9 +419,9 @@ ApiService.prototype._handleCreate = function(model, req, res, next) {
 
     instance.save().then(function(createdRecord) {
 
-        // TODO: for now, take the first element. However, may specify to __serializeRecordsToResources
+        // TODO: for now, take the first element. However, may specify to _serializeRecordsToResources
         // how we want to receive the result in the future
-        res.json({data: self.__serializeRecordsToResources(createdRecord)[0]});
+        res.json({data: self._serializeRecordsToResources(createdRecord)[0]});
 
     }).error(self._handleError(res));
 };
@@ -443,23 +464,23 @@ ApiService.prototype._registerResourceRoutes = function(name, model) {
     var self = this;
     var root = util.format('/%s', name);
 
-    self.app.route(root).get(function(req, res, next) {
+    self._app.route(root).get(function(req, res, next) {
         self._handleGetList(model, req, res, next);
     });
 
-    self.app.route(root + '/:id').get(function(req, res, next) {
+    self._app.route(root + '/:id').get(function(req, res, next) {
         self._handleGetDetails(model, req, res, next);
     });
 
-    self.app.route(root).post(function(req, res, next) {
+    self._app.route(root).post(function(req, res, next) {
         self._handleCreate(model, req, res, next);
     });
 
-    self.app.route(root + '/:id').patch(function(req, res, next) {
+    self._app.route(root + '/:id').patch(function(req, res, next) {
         self._handleUpdate(model, req, res, next);
     });
 
-    self.app.route(root + '/:id').delete(function(req, res, next) {
+    self._app.route(root + '/:id').delete(function(req, res, next) {
         self._handleDelete(model, req, res, next);
     });
 };
@@ -468,6 +489,179 @@ ApiService.prototype._handleError = function(res) {
     return function(error) {
         return res.send(500, {error: error.message});
     }
+};
+
+ApiService.prototype._handleCreateScan = function(model, req, res) {
+
+    var self = this;
+
+    // create the scan, using a scant service
+    request.post(self._scant_address + '/scans', function(error, response, body) {
+        if (!error && response.statusCode == 200) {
+            console.log(body);
+        }
+    });
+};
+
+//
+// Auth
+//
+
+ApiService.prototype._getOauthInfo = function() {
+
+    var self = this;
+
+    return {
+        clientID: self._authInfo.id,
+        clientSecret: self._authInfo.secret,
+        callbackURL: self._rootUrl + '/login/callback'
+    };
+};
+
+ApiService.prototype._findUserByEmail = function(email, callback) {
+
+    var self = this;
+
+    /* if (self._users[email])
+        callback(null, self._users[email]);
+    else
+        callback(new Error('Failed to find user with email')); */
+
+    return self._users[0];
+};
+
+ApiService.prototype._onUserAuthentication = function(user) {
+
+    var self = this;
+
+    self._logger.debug({user: user.name}, 'User logged in');
+
+    // create application folder for user
+    self._createPovertyFolder(user);
+};
+
+ApiService.prototype._createPovertyFolder = function(user) {
+
+    var self = this;
+
+    self._logger.debug({user: user.name}, 'Getting poverty folder');
+
+    // create an oauth client with pre-loaded tokens
+    var oauthInfo = self._getOauthInfo();
+    var oauth2Client = new google.auth.OAuth2(oauthInfo.clientID,
+        oauthInfo.clientSecret,
+        oauthInfo.callbackURL);
+
+    oauth2Client.credentials = {
+        access_token: user.token,
+        refresh_token: user.refreshToken
+    };
+
+    var drive = google.drive({ version: 'v2', auth: oauth2Client });
+
+    // look for the poverty application directory
+    drive.files.list({
+        q: 'title = ".poverty"'
+    }, function(error, resource) {
+
+        // is there an id?
+        if (resource.items.length === 0) {
+
+            self._logger.debug({user: user.name}, 'Poverty folder doesn\'t exist, creating');
+
+            drive.files.insert({
+                resource: {
+                    title: '.poverty',
+                    mimeType: 'application/vnd.google-apps.folder'
+                }
+            }, function(error, resource) {
+
+                if (error) {
+                    return self._logger.warn({user: user.name, error: error}, 'Failed to create poverty folder');
+                }
+
+                user.povertyFolderId = resource.id;
+                self._logger.debug({user: user.name, id: user.povertyFolderId}, 'Poverty folder created successfully');
+            });
+        } else {
+
+            if (resource.items.length > 1) {
+                self._logger.warn({user: user.name}, 'Several poverty folders exist, using first');
+            }
+
+            user.povertyFolderId = resource.items[0].id;
+            self._logger.debug({user: user.name, id: user.povertyFolderId}, 'Poverty folder exists');
+        }
+    })
+};
+
+ApiService.prototype._initializeAuthentication = function() {
+
+    var self = this;
+
+    self._app.use(passport.initialize());
+    self._app.use(passport.session());
+
+    //
+    // Passport user management
+    //
+
+    passport.serializeUser(function(user, done)
+    {
+        done(null, user);
+    });
+
+    passport.deserializeUser(function(id, done)
+    {
+        done(null, user);
+    });
+
+    //
+    // Routes
+    //
+
+    self._app.get('/login', passport.authenticate('google', {
+        scope: [
+            'email',
+            'https://www.googleapis.com/auth/drive'
+        ]
+    }));
+
+    // callback from google
+    self._app.get('/login/callback',
+        passport.authenticate('google',
+            {
+                successRedirect : '/',
+                failureRedirect : '/login'
+            }));
+
+    //
+    // Login management
+    //
+
+    passport.use(new passportGoogleOauth.OAuth2Strategy(self._getOauthInfo(),
+        function(token, refreshToken, profile, done)
+        {
+            // TODO: promise
+            // find a user by email
+            self._findUserByEmail(profile.emails[0].value, function(error, user) {
+
+                if (error)
+                    return done(error);
+
+                // save user authentication info
+                user.token = token;
+                user.refreshToken = refreshToken;
+                user.googleId = profile.id;
+
+                // handle user login
+                self._onUserAuthentication(user);
+
+                // if a user is found, log them in
+                return done(null, user);
+            });
+        })
+    );
 };
 
 module.exports = ApiService;

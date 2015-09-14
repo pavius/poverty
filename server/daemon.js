@@ -29,8 +29,18 @@ function initialize(daemon) {
     // Import rethinkdbdash
     var thinky = require('thinky')(config.rethinkdb);
 
+    // get auth info
+    var authInfo = {
+        id: process.env.POVERTY_CLIENT_ID || 'local',
+        secret: process.env.POVERTY_CLIENT_SECRET || 'local'
+    };
+
     // create service instance
-    daemon.service = new ApiService(daemon.logger, thinky);
+    daemon.service = new ApiService(daemon.logger,
+        thinky,
+        config.poverty.rootUrl,
+        config.scant.url,
+        authInfo);
 }
 
 var daemon = {}
@@ -39,4 +49,4 @@ var daemon = {}
 initialize(daemon);
 
 // start listening
-daemon.service.listen(parseInt(process.env.POVERTY_LISTEN_PORT) || config.express.port);
+daemon.service.listen(parseInt(process.env.POVERTY_LISTEN_PORT) || config.poverty.port);

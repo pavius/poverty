@@ -5,7 +5,11 @@ module.exports = {
         authKey: "",
         db: "poverty"
     },
-    express: {
+    scant: {
+        url: "http://localhost:3100"
+    },
+    poverty: {
+        rootUrl: "http://poverty.localtunnel.me",
         port: 3000
     }
 }
