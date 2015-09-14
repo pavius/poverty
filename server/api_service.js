@@ -95,9 +95,9 @@ ApiService.prototype._initModels = function() {
     //
     // register the routes for the resources
     //
-    self.registerResourceRoutes('suppliers', Supplier);
-    self.registerResourceRoutes('quotes', Quote);
-    self.registerResourceRoutes('invoices', Invoice);
+    self._registerResourceRoutes('suppliers', Supplier);
+    self._registerResourceRoutes('quotes', Quote);
+    self._registerResourceRoutes('invoices', Invoice);
 };
 
 
@@ -112,12 +112,12 @@ ApiService.prototype._initRoutes = function() {
     });
 };
 
-ApiService.prototype.getModelJoins = function(model) {
+ApiService.prototype._getModelJoins = function(model) {
 
     return model._joins;
 };
 
-ApiService.prototype.asArray = function(obj) {
+ApiService.prototype._asArray = function(obj) {
 
     // undefined -> []
     if (obj) {
@@ -131,15 +131,15 @@ ApiService.prototype.asArray = function(obj) {
     }
 };
 
-ApiService.prototype.extractJoinedRecords = function(rootRecords, model, extractedRecords) {
+ApiService.prototype._extractJoinedRecords = function(rootRecords, model, extractedRecords) {
 
     var self = this;
 
     // if root is not array, make it an array of one
-    rootRecords = self.asArray(rootRecords);
+    rootRecords = self._asArray(rootRecords);
 
     // get my joins
-    var joins = self.getModelJoins(model);
+    var joins = self._getModelJoins(model);
 
     // iterate over all records in root
     _.forEach(rootRecords, function(rootRecord) {
@@ -147,13 +147,13 @@ ApiService.prototype.extractJoinedRecords = function(rootRecords, model, extract
         // iterate over all join fields
         _.forOwn(joins, function(joinInfo, joinField) {
 
-            var joinedRecords = self.asArray(rootRecord[joinField]);
+            var joinedRecords = self._asArray(rootRecord[joinField]);
 
             // skip joins with no actual records attached
             if (joinedRecords.length) {
 
                 // first, extract all of its joins
-                self.extractJoinedRecords(joinedRecords, joinInfo.model, extractedRecords);
+                self._extractJoinedRecords(joinedRecords, joinInfo.model, extractedRecords);
 
                 // now shove all of our records into extracted records
                 extractedRecords.push.apply(extractedRecords, joinedRecords);
@@ -162,7 +162,7 @@ ApiService.prototype.extractJoinedRecords = function(rootRecords, model, extract
     });
 };
 
-ApiService.prototype.getRecordAttributes = function(record, joins, fields) {
+ApiService.prototype._getRecordAttributes = function(record, joins, fields) {
 
     var self = this;
     var attributes = {};
@@ -188,32 +188,32 @@ ApiService.prototype.getRecordAttributes = function(record, joins, fields) {
     return attributes;
 };
 
-ApiService.prototype.getResourceTypeByTableName = function(tableName) {
+ApiService.prototype._getResourceTypeByTableName = function(tableName) {
 
     var self = this;
 
     return tableName.substring(0, tableName.length - 1);
 };
 
-ApiService.prototype.serializeRecordsToResources = function(records, fieldsForTypes) {
+ApiService.prototype.__serializeRecordsToResources = function(records, fieldsForTypes) {
 
     var self = this;
     var resources = [];
 
-    records = self.asArray(records);
+    records = self._asArray(records);
 
     _.forEach(records, function(record) {
 
         // get the joins for this type of record
-        var joins = self.getModelJoins(record.getModel());
+        var joins = self._getModelJoins(record.getModel());
 
         // get the resource type
-        var resourceType = self.getResourceTypeByTableName(record.getModel().getTableName());
+        var resourceType = self._getResourceTypeByTableName(record.getModel().getTableName());
 
         var resource = {
             type: resourceType,
             id: record.id,
-            attributes: self.getRecordAttributes(record,
+            attributes: self._getRecordAttributes(record,
                 joins,
                 fieldsForTypes ? fieldsForTypes[resourceType] : undefined)
         };
@@ -229,7 +229,7 @@ ApiService.prototype.serializeRecordsToResources = function(records, fieldsForTy
                 joinField = joinInfo.leftKey;
 
             // iterate through relations
-            _.forEach(self.asArray(record[joinField]), function(joinedRecordId) {
+            _.forEach(self._asArray(record[joinField]), function(joinedRecordId) {
 
                 // create relationships if doesn't already exist
                 if (!resource.relationships)
@@ -238,7 +238,7 @@ ApiService.prototype.serializeRecordsToResources = function(records, fieldsForTy
                 // the relationship to add
                 var relationship = {
                     data: {
-                        type: self.getResourceTypeByTableName(joinInfo.model.getTableName()),
+                        type: self._getResourceTypeByTableName(joinInfo.model.getTableName()),
                         id: joinedRecordId.id || joinedRecordId
                     }
                 };
@@ -267,7 +267,7 @@ ApiService.prototype.serializeRecordsToResources = function(records, fieldsForTy
     return resources;
 };
 
-ApiService.prototype.serialize = function(root, model, query) {
+ApiService.prototype._serialize = function(root, model, query) {
 
     var self = this;
     var encodedResponse = {};
@@ -277,25 +277,25 @@ ApiService.prototype.serialize = function(root, model, query) {
     var fieldsForTypes = query.fields;
 
     // to make things simple, always work with an array
-    root = self.asArray(root);
+    root = self._asArray(root);
 
     // recurse into the tree, and flatten all joined records, keyed by their model
-    self.extractJoinedRecords(root, model, joinedRecords);
+    self._extractJoinedRecords(root, model, joinedRecords);
 
     // remove duplicates (use only id)
     joinedRecords = _.uniq(joinedRecords, 'id');
 
-    // iterate over all the joined records and serialize them into resources, under "include"
-    encodedResponse.included = self.serializeRecordsToResources(joinedRecords, fieldsForTypes);
+    // iterate over all the joined records and _serialize them into resources, under "include"
+    encodedResponse.included = self.__serializeRecordsToResources(joinedRecords, fieldsForTypes);
 
     // iterate over roots, encode as a resource into the data
-    encodedResponse.data = self.serializeRecordsToResources(root, fieldsForTypes);
+    encodedResponse.data = self.__serializeRecordsToResources(root, fieldsForTypes);
 
     return encodedResponse;
 };
 
 // if name is 'x.y.z', and value is 5, context.x.y.z = 5
-ApiService.prototype.setObjectProperties = function(name, value, context) {
+ApiService.prototype._setObjectProperties = function(name, value, context) {
 
     var self = this;
     var parts = name.split("."),
@@ -309,7 +309,7 @@ ApiService.prototype.setObjectProperties = function(name, value, context) {
 };
 
 // converts x.y -> {x: {y: true}}
-ApiService.prototype.getJoinFromInclude = function(includes) {
+ApiService.prototype._getJoinFromInclude = function(includes) {
 
     var self = this;
     var join = {};
@@ -319,18 +319,18 @@ ApiService.prototype.getJoinFromInclude = function(includes) {
         includes = includes.split(',');
 
         _.forEach(includes, function(include) {
-            self.setObjectProperties(include, true, join);
+            self._setObjectProperties(include, true, join);
         });
     }
 
     return join;
 };
 
-ApiService.prototype.parseQuery = function(query) {
+ApiService.prototype._parseQuery = function(query) {
 
     var self = this;
     var parsedQuery = {
-        join: self.getJoinFromInclude(query.include),
+        join: self._getJoinFromInclude(query.include),
         fields: {}
     };
 
@@ -346,38 +346,38 @@ ApiService.prototype.parseQuery = function(query) {
 // Routes
 //
 
-ApiService.prototype.handleGetList = function(model, req, res, next) {
+ApiService.prototype._handleGetList = function(model, req, res, next) {
 
     var self = this;
-    var query = self.parseQuery(req.query);
+    var query = self._parseQuery(req.query);
 
     model.getJoin(query.join).run().then(function(matchingRecords) {
 
-        res.json(self.serialize(matchingRecords, model, query));
+        res.json(self._serialize(matchingRecords, model, query));
 
-    }).error(self.handleError(res));
+    }).error(self._handleError(res));
 };
 
-ApiService.prototype.handleGetDetails = function(model, req, res, next) {
+ApiService.prototype._handleGetDetails = function(model, req, res, next) {
 
     var self = this;
-    var query = self.parseQuery(req.query);
+    var query = self._parseQuery(req.query);
 
     model.get(req.params.id).getJoin(query.join).run().then(function(matchingRecord) {
 
         // don't pass a data array, just pass the data
-        var resource = self.serialize(matchingRecord, model, query);
+        var resource = self._serialize(matchingRecord, model, query);
         if (resource.data.length) {
             resource.data = resource.data[0];
         }
 
         res.json(resource);
 
-    }).error(self.handleError(res));
+    }).error(self._handleError(res));
 };
 
 // this currently supports only 1:1 relationships
-function deserializeResourceToRecord(model, resource) {
+ApiService.prototype._deserializeResourceToRecord = function(model, resource) {
 
     // first, shove attributes
     var record = resource.data.attributes;
@@ -391,35 +391,35 @@ function deserializeResourceToRecord(model, resource) {
     return record;
 }
 
-ApiService.prototype.handleCreate = function(model, req, res, next) {
+ApiService.prototype._handleCreate = function(model, req, res, next) {
 
     var self = this;
-    var instance = new model(deserializeResourceToRecord(model, req.body));
+    var instance = new model(self._deserializeResourceToRecord(model, req.body));
 
     instance.save().then(function(createdRecord) {
 
-        // TODO: for now, take the first element. However, may specify to serializeRecordsToResources
+        // TODO: for now, take the first element. However, may specify to __serializeRecordsToResources
         // how we want to receive the result in the future
-        res.json({data: self.serializeRecordsToResources(createdRecord)[0]});
+        res.json({data: self.__serializeRecordsToResources(createdRecord)[0]});
 
-    }).error(self.handleError(res));
+    }).error(self._handleError(res));
 };
 
-ApiService.prototype.handleUpdate = function(model, req, res, next) {
+ApiService.prototype._handleUpdate = function(model, req, res, next) {
 
     var self = this;
 
     model.get(req.params.id).then(function(matchingRecord) {
 
-        matchingRecord.merge(deserializeResourceToRecord(model, req.body)).save().then(function(updatedRecord) {
+        matchingRecord.merge(self._deserializeResourceToRecord(model, req.body)).save().then(function(updatedRecord) {
 
             res.sendStatus(204);
         });
 
-    }).error(self.handleError(res));
+    }).error(self._handleError(res));
 };
 
-ApiService.prototype.handleDelete = function(model, req, res, next) {
+ApiService.prototype._handleDelete = function(model, req, res, next) {
 
     var self = this;
 
@@ -435,36 +435,36 @@ ApiService.prototype.handleDelete = function(model, req, res, next) {
             }
         })
 
-    }).error(self.handleError(res));
+    }).error(self._handleError(res));
 }
 
-ApiService.prototype.registerResourceRoutes = function(name, model) {
+ApiService.prototype._registerResourceRoutes = function(name, model) {
 
     var self = this;
     var root = util.format('/%s', name);
 
     self.app.route(root).get(function(req, res, next) {
-        self.handleGetList(model, req, res, next);
+        self._handleGetList(model, req, res, next);
     });
 
     self.app.route(root + '/:id').get(function(req, res, next) {
-        self.handleGetDetails(model, req, res, next);
+        self._handleGetDetails(model, req, res, next);
     });
 
     self.app.route(root).post(function(req, res, next) {
-        self.handleCreate(model, req, res, next);
+        self._handleCreate(model, req, res, next);
     });
 
     self.app.route(root + '/:id').patch(function(req, res, next) {
-        self.handleUpdate(model, req, res, next);
+        self._handleUpdate(model, req, res, next);
     });
 
     self.app.route(root + '/:id').delete(function(req, res, next) {
-        self.handleDelete(model, req, res, next);
+        self._handleDelete(model, req, res, next);
     });
 };
 
-ApiService.prototype.handleError = function(res) {
+ApiService.prototype._handleError = function(res) {
     return function(error) {
         return res.send(500, {error: error.message});
     }
