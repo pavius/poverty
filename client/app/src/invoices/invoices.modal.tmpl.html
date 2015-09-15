@@ -9,17 +9,24 @@
 
     <div layout="column">
 
-      <md-content md-theme="docs-dark" layout-padding layout="row" layout-sm="column">
-        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" style="width: 100%">
+      <md-content md-theme="docs-dark" layout-padding layout="column">
+        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote">
           <md-option ng-repeat="quote in vm.relationships.quote.values" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
         </md-select>
       </md-content>
 
       <md-content layout="row" layout-padding>
-        <md-input-container style="width: 100%">
+        <md-input-container>
           <label>Amount</label>
           <input ng-model="vm.resource.attributes.amount">
         </md-input-container>
+        <md-input-container style="width: 65%">
+          <label>Scan</label>
+          <input ng-model="vm.resource.attributes.scanUrl">
+        </md-input-container>
+        <md-button class="md-icon-button" style="margin-top: 10px" ng-click="vm.customController.scan()">
+          <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
+        </md-button>
       </md-content>
 
       <div class="md-actions" layout="row">
@@ -30,7 +37,7 @@
         <md-button ng-click="vm.close('cancel')" >
           Cancel
         </md-button>
-        <md-button ng-click="vm.close('ok')" style="margin-right:20px;">
+        <md-button class=md-primary ng-click="vm.close('ok')" style="margin-right:20px;">
           {{vm.mode}}
         </md-button>
       </div>

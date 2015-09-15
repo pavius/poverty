@@ -16,7 +16,14 @@
               .dark();
 
             //
-            RestangularProvider.setBaseUrl('http://poverty.localtunnel.me/');
+            RestangularProvider.setBaseUrl('http://poverty.localtunnel.me/api/');
+
+            // this is to set Access-Control-Allow-Credentials which apparently allows cookies in cross
+            // origin requests, otherwise each request set its own cookie and ignored the fact that
+            // there was a cookie for the API origin
+            RestangularProvider.setDefaultHttpFields({
+                withCredentials: true
+            });
 
             // add a response interceptor
             RestangularProvider.addResponseInterceptor(function(data, operation, what, url, response, deferred) {

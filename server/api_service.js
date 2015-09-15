@@ -539,6 +539,16 @@ ApiService.prototype._registerResourceRoutes = function(name, model) {
     });
 
     self._app.use('/api', apiRouter);
+
+    //
+    // Todo remove
+    //
+
+    // create an invoice scan
+    self._app.route('/invoices/:id/scans').post(function(request, response) {
+
+        self._handleCreateScan(null, request, response);
+    });
 };
 
 ApiService.prototype._handleError = function(res) {
@@ -552,8 +562,8 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
     var self = this;
 
     // get the user for this session TODO
-    // var user = self._users['some_guy@gmail.com'];
-    var user = req.user;
+    var user = self._users['some_guy@gmail.com'];
+    // var user = req.user;
 
     self._logger.debug({user: user.name}, 'Submitting scan request');
 

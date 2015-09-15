@@ -6,6 +6,7 @@
           <th name="Supplier"></th>
           <th name="Quote"></th>
           <th name="Amount"></th>
+          <th name="Scan"></th>
           <th name="Paid at"></th>
           <th order-by="attributes.createdAt" name="Created at"></th>
         </tr>
@@ -15,6 +16,7 @@
           <td>{{vm.getSupplierById(vm.getQuoteById(invoice.relationships.quote.data.id).relationships.supplier.data.id).attributes.name}}</td>
           <td>{{vm.getQuoteById(invoice.relationships.quote.data.id).attributes.delivery}}</td>
           <td>{{invoice.attributes.amount}}</td>
+          <td><a href={{invoice.attributes.scanUrl}}>Invoice</a></td>
           <td>{{invoice.attributes.paidAt}}</td>
           <td>{{invoice.attributes.createdAt}}</td>
         </tr>

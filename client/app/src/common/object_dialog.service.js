@@ -48,7 +48,7 @@
     }
 
     return {
-      show: function($event, model, mode, resource, resources, relationships) {
+      show: function($event, model, mode, resource, resources, relationships, customController) {
 
         var plural_model = pluralize(model);
         var rest = Restangular.all(plural_model);
@@ -70,7 +70,8 @@
           locals: {
             mode: mode,
             resource: resource,
-            relationships: relationships
+            relationships: relationships,
+            customController: customController
           }
         })
         .then(function(dialogResult) {
@@ -146,12 +147,17 @@
     }
   };
 
-  function ObjectDialogController($scope, $mdDialog, mode, resource, relationships) {
+  function ObjectDialogController($scope, $mdDialog, mode, resource, relationships, customController) {
       var vm = this;
 
       vm.mode = mode;
       vm.resource = angular.copy(resource);
       vm.relationships = relationships;
+
+      // users can pass custom controllers and access them from the template to do
+      // custom stuff
+      if (customController)
+        vm.customController = new customController();
 
       vm.close = function(action) {
         $mdDialog.hide({

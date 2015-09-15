@@ -39,6 +39,30 @@
 
     vm.showDialog = function(mode, $event, invoice) {
 
+      var self = this;
+
+      // create a modal controller, to be used as an extension
+      function CustomController() {
+
+        var vm = this;
+
+        vm.scan = function() {
+          Restangular.one('invoices', 30).all('scans').post({
+            data: {
+              attributes: {
+                name: "from UI"
+              }
+            }
+          }).then(function(resource) {
+
+            console.log(resource);
+          }, function(error) {
+
+            console.log(error);
+          });
+        }
+      }
+
       var relationships = {
         quote: {
           type: 'quote',
@@ -51,7 +75,8 @@
         mode,
         invoice,
         $rootScope.invoices,
-        relationships);
+        relationships,
+        CustomController);
     };
   }
 })();
