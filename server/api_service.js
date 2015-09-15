@@ -11,6 +11,10 @@ var passport = require('passport');
 var passportGoogleOauth = require('passport-google-oauth');
 var google = require('googleapis');
 var fs = require('fs');
+var cors = require('cors');
+var expressSession = require('express-session');
+var expressCookieParser = require('cookie-parser')
+
 
 function ApiService(logger, db, rootUrl, scant_address, authInfo) {
 
@@ -25,8 +29,8 @@ function ApiService(logger, db, rootUrl, scant_address, authInfo) {
         'some_guy@gmail.com': {}
     };
 
-    this._initializeExpress();
     this._initializeAuthentication();
+    this._initializeExpress();
     this._initModels();
     this._initRoutes();
 
@@ -47,11 +51,26 @@ ApiService.prototype._initializeExpress = function() {
 
     self._app = express();
 
+    // support CORS before anything else
+    self._app.use(cors({
+        'origin': function(origin, callback) {
+
+            // worry about this when it's relevant
+            callback(null, true);
+        },
+        'credentials': true
+    }));
+
     // parse json
     self._app.use(bodyParser.json({limit: '10mb'}));
 
     // parse url encoded params
-    self._app.use(bodyParser.urlencoded());
+    self._app.use(bodyParser.urlencoded(/* {
+        extended: true
+    } */));
+
+    // parse url encoded params
+    self._app.use(expressCookieParser());
 
     // log all requests and their responses
     self._app.use(function(request, response, next) {
@@ -68,6 +87,14 @@ ApiService.prototype._initializeExpress = function() {
         });
         next();
     });
+
+    self._app.use(expressSession({
+        /* resave: true,
+        saveUninitialized: true, */
+        secret: 'some retarded secret'}));
+
+    self._app.use(passport.initialize());
+    self._app.use(passport.session());
 };
 
 ApiService.prototype._initModels = function() {
@@ -123,16 +150,29 @@ ApiService.prototype._initRoutes = function() {
 
     var self = this;
 
-    // create an invoice scan
-    self._app.route('/invoices/:id/scans').post(function(request, response) {
+    //
+    // Authentication
+    //
 
-        self._handleCreateScan(null, request, response);
-    });
+    self._app.get('/login', passport.authenticate('google', {
+        scope: [
+            'email',
+            'https://www.googleapis.com/auth/drive'
+        ]
+    }));
 
-    // route everything that hasn't been caught
-    self._app.route('/*').all(function(request, response) {
+    // callback from google
+    self._app.get('/login/callback',
+        passport.authenticate('google',
+            {
+                successRedirect : '/',
+                failureRedirect : '/login'
+            }));
 
-        response.status(403).end();
+    // root access to the application
+    self._app.route('/*').all(function(request, response)
+    {
+        response.send(403);
     });
 };
 
@@ -437,7 +477,7 @@ ApiService.prototype._handleUpdate = function(model, req, res, next) {
 
         matchingRecord.merge(self._deserializeResourceToRecord(model, req.body)).save().then(function(updatedRecord) {
 
-            res.sendStatus(204);
+            res.send(204);
         });
 
     }).error(self._handleError(res));
@@ -453,9 +493,9 @@ ApiService.prototype._handleDelete = function(model, req, res, next) {
 
             // if delete occurred successfully, saved flag should be turned off
             if (!deletedRecord.isSaved()) {
-                res.sendStatus(204);
+                res.send(204);
             } else {
-                res.sendStatus(500);
+                res.send(500);
             }
         })
 
@@ -465,27 +505,40 @@ ApiService.prototype._handleDelete = function(model, req, res, next) {
 ApiService.prototype._registerResourceRoutes = function(name, model) {
 
     var self = this;
+    var apiRouter = express.Router();
+
     var root = util.format('/%s', name);
 
-    self._app.route(root).get(function(req, res, next) {
+    // reject unauthenticated requests
+    apiRouter.use(self._isLoggedInSendError.bind(self));
+
+    apiRouter.get(root, function(req, res, next) {
         self._handleGetList(model, req, res, next);
     });
 
-    self._app.route(root + '/:id').get(function(req, res, next) {
+    apiRouter.get(root + '/:id', function(req, res, next) {
         self._handleGetDetails(model, req, res, next);
     });
 
-    self._app.route(root).post(function(req, res, next) {
+    apiRouter.post(root, function(req, res, next) {
         self._handleCreate(model, req, res, next);
     });
 
-    self._app.route(root + '/:id').patch(function(req, res, next) {
+    apiRouter.patch(root + '/:id', function(req, res, next) {
         self._handleUpdate(model, req, res, next);
     });
 
-    self._app.route(root + '/:id').delete(function(req, res, next) {
+    apiRouter.delete(root + '/:id', function(req, res, next) {
         self._handleDelete(model, req, res, next);
     });
+
+    // create an invoice scan
+    apiRouter.post('/invoices/:id/scans', function(request, response) {
+
+        self._handleCreateScan(null, request, response);
+    });
+
+    self._app.use('/api', apiRouter);
 };
 
 ApiService.prototype._handleError = function(res) {
@@ -499,7 +552,8 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
     var self = this;
 
     // get the user for this session TODO
-    var user = self._users['some_guy@gmail.com'];
+    // var user = self._users['some_guy@gmail.com'];
+    var user = req.user;
 
     self._logger.debug({user: user.name}, 'Submitting scan request');
 
@@ -551,6 +605,39 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
 //
 // Auth
 //
+
+ApiService.prototype._verifyLoggedIn = function(request, response, errorScheme, next)
+{
+    var self = this;
+
+    if (self._authInfo.bypass || request.isAuthenticated())
+    {
+        return next();
+    }
+    else
+    {
+        if (errorScheme == 'redirect')
+            response.redirect('/login');
+        else
+            response.send(401);
+    }
+}
+
+ApiService.prototype._isLoggedInRedirect = function(request, response, next)
+{
+    var self = this;
+
+    // check if logged in and redirect to /login otherwise
+    return self._verifyLoggedIn(request, response, 'redirect', next);
+}
+
+ApiService.prototype._isLoggedInSendError = function(request, response, next)
+{
+    var self = this;
+
+    // check if logged in and return error otherwise
+    return self._verifyLoggedIn(request, response, 'error', next);
+}
 
 ApiService.prototype._getOauthInfo = function() {
 
@@ -653,41 +740,19 @@ ApiService.prototype._initializeAuthentication = function() {
 
     var self = this;
 
-    self._app.use(passport.initialize());
-    self._app.use(passport.session());
-
     //
     // Passport user management
     //
 
     passport.serializeUser(function(user, done)
     {
-        done(null, user);
+        done(null, user.profileId);
     });
 
     passport.deserializeUser(function(id, done)
     {
-        done(null, user);
+        done(null, self._users['some_guy@gmail.com']);
     });
-
-    //
-    // Routes
-    //
-
-    self._app.get('/login', passport.authenticate('google', {
-        scope: [
-            'email',
-            'https://www.googleapis.com/auth/drive'
-        ]
-    }));
-
-    // callback from google
-    self._app.get('/login/callback',
-        passport.authenticate('google',
-            {
-                successRedirect : '/',
-                failureRedirect : '/login'
-            }));
 
     //
     // Login management
@@ -704,6 +769,7 @@ ApiService.prototype._initializeAuthentication = function() {
                     return done(error);
 
                 // save user authentication info
+                user.profileId = profile.id;
                 user.token = token;
                 user.refreshToken = refreshToken;
                 user.googleId = profile.id;

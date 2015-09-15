@@ -8,55 +8,53 @@
             '$scope', '$log', '$q',
             PovertyController
         ])
-        .config(function($mdThemingProvider, RestangularProvider) {
+        .config(['$mdThemingProvider', 'RestangularProvider', '$httpProvider',
+          function($mdThemingProvider, RestangularProvider, $httpProvider) {
 
-          $mdThemingProvider.theme('docs-dark', 'default')
-            .primaryPalette('yellow')
-            .dark();
+            $mdThemingProvider.theme('docs-dark', 'default')
+              .primaryPalette('yellow')
+              .dark();
 
-          //
-          RestangularProvider.setBaseUrl('http://localhost:3000/');
+            //
+            RestangularProvider.setBaseUrl('http://poverty.localtunnel.me/');
 
-          // add a response interceptor
-          RestangularProvider.addResponseInterceptor(function(data, operation, what, url, response, deferred) {
+            // add a response interceptor
+            RestangularProvider.addResponseInterceptor(function(data, operation, what, url, response, deferred) {
 
-            if (data.data) {
+              if (data.data) {
+                var extractedData = data.data;
+                extractedData.meta = data.meta;
+                extractedData.included = data.included;
 
-              var extractedData = data.data;
-              extractedData.meta = data.meta;
-              extractedData.included = data.included;
-
-              function _apply(elem, fct) {
-                if (elem !== undefined){
-                  if (elem.type !== undefined){
-                    fct(elem);
-                  } else {
-                    _.forEach(elem, function(el){
-                      _apply(el, fct);
-                    });
+                function _apply(elem, fct) {
+                  if (elem !== undefined){
+                    if (elem.type !== undefined) {
+                      fct(elem);
+                    } else {
+                      _.forEach(elem, function(el) {
+                        _apply(el, fct);
+                      });
+                    }
                   }
                 }
-              }
 
-              _apply(data.data, function(elem) {
-                _apply(elem.relationships, function(rel) {
-                  rel.getIncluded = function(){
-                    return _.find(extractedData.included, function(included) {
-                      var a = included.type == rel.type;
-                      var b = included.id == rel.id;
-                      return a && b;
-                    });
-                  };
+                _apply(data.data, function(elem) {
+                  _apply(elem.relationships, function(rel) {
+                    rel.getIncluded = function(){
+                      return _.find(extractedData.included, function(included) {
+                        return (included.type == rel.type) && (included.id == rel.id);
+                      });
+                    };
+                  });
                 });
-              });
 
-              return extractedData;
+                return extractedData;
 
-            } else {
-              return data;
-            }
-          });
-        });
+              } else {
+                return data;
+              }
+            });
+        }]);
 
     function PovertyController($scope, $log, $q) {
         var vm = this;
