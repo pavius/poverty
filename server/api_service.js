@@ -118,10 +118,16 @@ ApiService.prototype._initModels = function() {
 
     var Invoice = self._db.createModel('invoices', {
         amount: type.number(),
-        scanUrl: type.string(),
         paidAt: type.date(),
         quoteId: type.string(),
         supplierId: type.string(),
+        createdAt: type.date().default(self._db.r.now())
+    });
+
+    var Scan = self._db.createModel('scans', {
+        url: type.string(),
+        ownerType: type.string(),
+        ownerId: type.string(),
         createdAt: type.date().default(self._db.r.now())
     });
 
@@ -136,15 +142,51 @@ ApiService.prototype._initModels = function() {
     Invoice.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
     Quote.hasMany(Invoice, 'invoices', 'id', 'quoteId');
 
+    Scan.belongsTo(Invoice, 'owner', 'ownerId', 'id');
+    Invoice.hasOne(Scan, 'scan', 'id', 'ownerId');
 
     //
     // register the routes for the resources
     //
+
     self._registerResourceRoutes('suppliers', Supplier);
     self._registerResourceRoutes('quotes', Quote);
     self._registerResourceRoutes('invoices', Invoice);
-};
+    self._registerResourceRoutes('scans', Scan);
 
+    //
+    // register callbacks
+    //
+
+    Scan._onCreate = function(createdRecord) {
+
+        // get the scan name
+        Invoice.get(createdRecord.ownerId).getJoin({quote: {supplier: true}}).run().then(function(record) {
+
+            var scanName = util.format('%s::%s::%s.pdf',
+                record.quote.supplier.name,
+                record.quote.delivery,
+                record.amount);
+
+            // replace spaces with underscores
+            scanName = scanName.replace(/ /g , '_');
+
+            // submit the scan - scans and saves to google drive
+            self._createScan(scanName, createdRecord.id, function(error, scan) {
+
+                 if (error)
+                    return error;
+
+                 // update scan
+                 createdRecord.merge({url: scan.url}).save().then(function(result) {
+                     self._logger.debug({id: createdRecord.id, url: scan.url}, 'Updated scan');
+                 }, function(error) {
+                     self._logger.debug({id: createdRecord.id, error: error}, 'Failed to update scan');
+                 });
+             });
+        });
+    }
+};
 
 ApiService.prototype._initRoutes = function() {
 
@@ -444,7 +486,7 @@ ApiService.prototype._handleGetDetails = function(model, req, res, next) {
 ApiService.prototype._deserializeResourceToRecord = function(model, resource) {
 
     // first, shove attributes
-    var record = resource.data.attributes;
+    var record = resource.data.attributes || {};
 
     // iterate through relationships, if any, and simply set [relationshipField]Id into the
     // resource
@@ -461,6 +503,9 @@ ApiService.prototype._handleCreate = function(model, req, res, next) {
     var instance = new model(self._deserializeResourceToRecord(model, req.body));
 
     instance.save().then(function(createdRecord) {
+
+        if (model._onCreate)
+            model._onCreate(createdRecord);
 
         // TODO: for now, take the first element. However, may specify to _serializeRecordsToResources
         // how we want to receive the result in the future
@@ -532,23 +577,7 @@ ApiService.prototype._registerResourceRoutes = function(name, model) {
         self._handleDelete(model, req, res, next);
     });
 
-    // create an invoice scan
-    apiRouter.post('/invoices/:id/scans', function(request, response) {
-
-        self._handleCreateScan(null, request, response);
-    });
-
     self._app.use('/api', apiRouter);
-
-    //
-    // Todo remove
-    //
-
-    // create an invoice scan
-    self._app.route('/invoices/:id/scans').post(function(request, response) {
-
-        self._handleCreateScan(null, request, response);
-    });
 };
 
 ApiService.prototype._handleError = function(res) {
@@ -557,7 +586,7 @@ ApiService.prototype._handleError = function(res) {
     }
 };
 
-ApiService.prototype._handleCreateScan = function(model, req, res) {
+ApiService.prototype._createScan = function(name, description, callback) {
 
     var self = this;
 
@@ -570,10 +599,7 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
     // create the scan, using a scant service
     request.post(self._scant_address + '/scans', {encoding: null}, function(error, response, scanBody) {
 
-        if (!error && response.statusCode == 200) {
-
-            // get the file name from the original POST
-            var fileName = req.body.data.attributes.name || util.format('scan_%s', 'temp');
+        if (!error && response.statusCode == 200 && user.googleApi) {
 
             // upload this to google drive
             user.googleApi.drive.files.insert({
@@ -582,7 +608,8 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
                         "kind": "drive#fileLink",
                         "id": user.povertyFolderId
                     }],
-                    title: fileName
+                    title: name,
+                    description: description
                 },
                 media: {
                     mimeType: 'application/pdf',
@@ -591,23 +618,21 @@ ApiService.prototype._handleCreateScan = function(model, req, res) {
             }, function(error, resource) {
 
                 if (error) {
-                    return self._logger.warn({user: user.name, error: error}, 'Failed to write scan');
+                    self._logger.warn({user: user.name, error: error}, 'Failed to write scan');
+                    return callback(error);
                 }
 
                 self._logger.debug({user: user.name, id: resource.id}, 'Scan submitted successfully');
 
-                // return the result
-                res.json({
-                    data: {
-                        id: resource.id,
-                        type: 'scan',
-                        attributes: {
-                            url: resource.alternateLink,
-                            size: resource.fileSize
-                        }
-                    }
+                // we're done
+                return callback(null, {
+                    url: resource.alternateLink,
+                    size: resource.fileSize
                 });
             });
+        } else {
+            self._logger.warn({error: error, status: response.statusCode, auth: user.googleApi ? true : false}, 'Cannot submit scan');
+            return callback(error);
         }
     });
 };

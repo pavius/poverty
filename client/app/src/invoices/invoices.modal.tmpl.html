@@ -20,10 +20,7 @@
           <label>Amount</label>
           <input ng-model="vm.resource.attributes.amount">
         </md-input-container>
-        <md-input-container style="width: 65%">
-          <label>Scan</label>
-          <input ng-model="vm.resource.attributes.scanUrl">
-        </md-input-container>
+        <p ng-show=vm.customController.url><a href={{vm.customController.url}}>INVOICE</a></p>
         <md-button class="md-icon-button" style="margin-top: 10px" ng-click="vm.customController.scan()">
           <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
         </md-button>
