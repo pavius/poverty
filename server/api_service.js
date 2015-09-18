@@ -13,7 +13,7 @@ var google = require('googleapis');
 var fs = require('fs');
 var cors = require('cors');
 var expressSession = require('express-session');
-var expressCookieParser = require('cookie-parser')
+var rethinkdbSession = require('session-rethinkdb')(expressSession);
 
 
 function ApiService(logger, db, rootUrl, scant_address, authInfo) {
@@ -69,9 +69,6 @@ ApiService.prototype._initializeExpress = function() {
         extended: true
     } */));
 
-    // parse url encoded params
-    self._app.use(expressCookieParser());
-
     // log all requests and their responses
     self._app.use(function(request, response, next) {
 
@@ -89,9 +86,15 @@ ApiService.prototype._initializeExpress = function() {
     });
 
     self._app.use(expressSession({
-        /* resave: true,
-        saveUninitialized: true, */
-        secret: 'some retarded secret'}));
+        resave: true,
+        saveUninitialized: true,
+        secret: 'some retarded secret',
+        store: rethinkdbSession({
+            servers: [
+                {host: 'localhost', port: 28015}
+            ]
+        })
+    }));
 
     self._app.use(passport.initialize());
     self._app.use(passport.session());
@@ -125,10 +128,17 @@ ApiService.prototype._initModels = function() {
     });
 
     var Scan = self._db.createModel('scans', {
+        name: type.string(),
         url: type.string(),
         ownerType: type.string(),
         ownerId: type.string(),
         createdAt: type.date().default(self._db.r.now())
+    });
+
+    self.User = self._db.createModel('users', {
+        name: type.string(),
+        email: type.string(),
+        token: type.string()
     });
 
     //
@@ -158,33 +168,21 @@ ApiService.prototype._initModels = function() {
     // register callbacks
     //
 
-    Scan._onCreate = function(createdRecord) {
+    Scan._onCreate = function(req, res, createdRecord) {
 
-        // get the scan name
-        Invoice.get(createdRecord.ownerId).getJoin({quote: {supplier: true}}).run().then(function(record) {
+        // submit the scan - scans and saves to google drive
+        self._createScan(req.user, createdRecord.name, createdRecord.id, function(error, scan) {
 
-            var scanName = util.format('%s::%s::%s.pdf',
-                record.quote.supplier.name,
-                record.quote.delivery,
-                record.amount);
+             if (error)
+                return error;
 
-            // replace spaces with underscores
-            scanName = scanName.replace(/ /g , '_');
-
-            // submit the scan - scans and saves to google drive
-            self._createScan(scanName, createdRecord.id, function(error, scan) {
-
-                 if (error)
-                    return error;
-
-                 // update scan
-                 createdRecord.merge({url: scan.url}).save().then(function(result) {
-                     self._logger.debug({id: createdRecord.id, url: scan.url}, 'Updated scan');
-                 }, function(error) {
-                     self._logger.debug({id: createdRecord.id, error: error}, 'Failed to update scan');
-                 });
+             // update scan
+             createdRecord.merge({url: scan.url}).save().then(function(result) {
+                 self._logger.debug({id: createdRecord.id, url: scan.url}, 'Updated scan');
+             }, function(error) {
+                 self._logger.debug({id: createdRecord.id, error: error}, 'Failed to update scan');
              });
-        });
+         });
     }
 };
 
@@ -505,7 +503,7 @@ ApiService.prototype._handleCreate = function(model, req, res, next) {
     instance.save().then(function(createdRecord) {
 
         if (model._onCreate)
-            model._onCreate(createdRecord);
+            model._onCreate(req, res, createdRecord);
 
         // TODO: for now, take the first element. However, may specify to _serializeRecordsToResources
         // how we want to receive the result in the future
@@ -586,23 +584,19 @@ ApiService.prototype._handleError = function(res) {
     }
 };
 
-ApiService.prototype._createScan = function(name, description, callback) {
+ApiService.prototype._createScan = function(user, name, description, callback) {
 
     var self = this;
-
-    // get the user for this session TODO
-    var user = self._users['some_guy@gmail.com'];
-    // var user = req.user;
 
     self._logger.debug({user: user.name}, 'Submitting scan request');
 
     // create the scan, using a scant service
     request.post(self._scant_address + '/scans', {encoding: null}, function(error, response, scanBody) {
 
-        if (!error && response.statusCode == 200 && user.googleApi) {
+        if (!error && response.statusCode == 200) {
 
             // upload this to google drive
-            user.googleApi.drive.files.insert({
+            self._createGoogleApi(user).drive.files.insert({
                 resource: {
                     parents: [{
                         "kind": "drive#fileLink",
@@ -612,7 +606,7 @@ ApiService.prototype._createScan = function(name, description, callback) {
                     description: description
                 },
                 media: {
-                    mimeType: 'application/pdf',
+                    mimeType: response.headers['Content-Type'],
                     body: scanBody
                 }
             }, function(error, resource) {
@@ -631,7 +625,7 @@ ApiService.prototype._createScan = function(name, description, callback) {
                 });
             });
         } else {
-            self._logger.warn({error: error, status: response.statusCode, auth: user.googleApi ? true : false}, 'Cannot submit scan');
+            self._logger.warn({error: error, status: response.statusCode}, 'Cannot submit scan');
             return callback(error);
         }
     });
@@ -689,25 +683,40 @@ ApiService.prototype._findUserByEmail = function(email, callback) {
 
     var self = this;
 
-    /* if (self._users[email])
-        callback(null, self._users[email]);
-    else
-        callback(new Error('Failed to find user with email')); */
+    self.User.filter({email: email}).run().then(function(user) {
 
-    callback(null, self._users['some_guy@gmail.com']);
+        if (!user || user.length !== 1)
+            return callback(new Error('Too many results or some other weirdness'));
+
+        callback(null, user[0]);
+
+    }, function(error) {
+        callback(new Error('Failed to find user with email'));
+    });
 };
 
-ApiService.prototype._onUserAuthentication = function(user) {
+ApiService.prototype._onUserAuthentication = function(user, token, refreshToken, callback) {
 
     var self = this;
 
     self._logger.debug({user: user.name}, 'User logged in');
 
-    // create the google API for the user
-    self._createGoogleApi(user);
+    // create application folder for user or get the ID if it exists
+    self._getPovertyFolderId(user, function(error, folderId) {
 
-    // create application folder for user
-    self._createPovertyFolder(user);
+        if (error)
+            return callback(error);
+
+        // save user authentication info and poverty id
+        user.token = token;
+        user.refreshToken = refreshToken;
+        user.povertyFolderId = folderId;
+
+        // save this to the database
+        user.save().then(function(error) {
+            callback(error);
+        });
+    });
 };
 
 ApiService.prototype._createGoogleApi = function(user) {
@@ -725,18 +734,21 @@ ApiService.prototype._createGoogleApi = function(user) {
         refresh_token: user.refreshToken
     };
 
-    user.googleApi = {};
-    user.googleApi.drive = google.drive({version: 'v2', auth: oauth2Client});
+    // build API
+    var googleApi = {};
+    googleApi.drive = google.drive({version: 'v2', auth: oauth2Client});
+
+    return googleApi;
 }
 
-ApiService.prototype._createPovertyFolder = function(user) {
+ApiService.prototype._getPovertyFolderId = function(user, callback) {
 
     var self = this;
 
     self._logger.debug({user: user.name}, 'Getting poverty folder');
 
     // look for the poverty application directory
-    user.googleApi.drive.files.list({
+    self._createGoogleApi(user).drive.files.list({
         q: 'title = ".poverty"'
     }, function(error, resource) {
 
@@ -753,11 +765,12 @@ ApiService.prototype._createPovertyFolder = function(user) {
             }, function(error, resource) {
 
                 if (error) {
-                    return self._logger.warn({user: user.name, error: error}, 'Failed to create poverty folder');
+                    self._logger.warn({user: user.name, error: error}, 'Failed to create poverty folder');
+                    return callback(error);
                 }
 
-                user.povertyFolderId = resource.id;
                 self._logger.debug({user: user.name, id: user.povertyFolderId}, 'Poverty folder created successfully');
+                return callback(null, resource.id);
             });
         } else {
 
@@ -765,8 +778,8 @@ ApiService.prototype._createPovertyFolder = function(user) {
                 self._logger.warn({user: user.name}, 'Several poverty folders exist, using first');
             }
 
-            user.povertyFolderId = resource.items[0].id;
             self._logger.debug({user: user.name, id: user.povertyFolderId}, 'Poverty folder exists');
+            return callback(null, resource.items[0].id);
         }
     })
 };
@@ -779,14 +792,22 @@ ApiService.prototype._initializeAuthentication = function() {
     // Passport user management
     //
 
-    passport.serializeUser(function(user, done)
-    {
-        done(null, user.profileId);
+    passport.serializeUser(function(user, done) {
+        done(null, user.id);
     });
 
-    passport.deserializeUser(function(id, done)
-    {
-        done(null, self._users['some_guy@gmail.com']);
+    passport.deserializeUser(function(id, done) {
+        // find user by id
+        self.User.get(id).run().then(function(user) {
+
+            // report back
+            done(null, user);
+
+        }, function(error) {
+
+            // repor error
+            done(error);
+        });
     });
 
     //
@@ -794,8 +815,7 @@ ApiService.prototype._initializeAuthentication = function() {
     //
 
     passport.use(new passportGoogleOauth.OAuth2Strategy(self._getOauthInfo(),
-        function(token, refreshToken, profile, done)
-        {
+        function(token, refreshToken, profile, done) {
             // TODO: promise
             // find a user by email
             self._findUserByEmail(profile.emails[0].value, function(error, user) {
@@ -803,17 +823,20 @@ ApiService.prototype._initializeAuthentication = function() {
                 if (error)
                     return done(error);
 
-                // save user authentication info
-                user.profileId = profile.id;
-                user.token = token;
-                user.refreshToken = refreshToken;
-                user.googleId = profile.id;
+                // handle user login - will save tokens, create directory if needed
+                self._onUserAuthentication(user, token, refreshToken, function(error) {
 
-                // handle user login
-                self._onUserAuthentication(user);
+                    if (error)
+                        return done(error);
 
-                // if a user is found, log them in
-                return done(null, user);
+                    // if a user is found, log them in
+                    return done(null, user);
+                });
+
+            }, function(error) {
+
+                // something bad happened
+                return done(new Error('Failed to save token in user'));
             });
         })
     );
