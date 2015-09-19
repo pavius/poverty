@@ -701,6 +701,10 @@ ApiService.prototype._onUserAuthentication = function(user, token, refreshToken,
 
     self._logger.debug({user: user.name}, 'User logged in');
 
+    // update the user tokens
+    user.token = token;
+    user.refreshToken = refreshToken;
+
     // create application folder for user or get the ID if it exists
     self._getPovertyFolderId(user, function(error, folderId) {
 
@@ -708,8 +712,6 @@ ApiService.prototype._onUserAuthentication = function(user, token, refreshToken,
             return callback(error);
 
         // save user authentication info and poverty id
-        user.token = token;
-        user.refreshToken = refreshToken;
         user.povertyFolderId = folderId;
 
         // save this to the database
@@ -747,17 +749,25 @@ ApiService.prototype._getPovertyFolderId = function(user, callback) {
 
     self._logger.debug({user: user.name}, 'Getting poverty folder');
 
+    // create the google api for the user, using the credentials stored in user
+    var googleApi = self._createGoogleApi(user);
+
     // look for the poverty application directory
-    self._createGoogleApi(user).drive.files.list({
+    googleApi.drive.files.list({
         q: 'title = ".poverty"'
     }, function(error, resource) {
+
+        if (error) {
+            self._logger.debug({user: user.name, error: error}, 'Failed to list folders');
+            return callback(error);
+        }
 
         // is there an id?
         if (resource.items.length === 0) {
 
             self._logger.debug({user: user.name}, 'Poverty folder doesn\'t exist, creating');
 
-            user.googleApi.drive.files.insert({
+            googleApi.drive.files.insert({
                 resource: {
                     title: '.poverty',
                     mimeType: 'application/vnd.google-apps.folder'
@@ -816,6 +826,7 @@ ApiService.prototype._initializeAuthentication = function() {
 
     passport.use(new passportGoogleOauth.OAuth2Strategy(self._getOauthInfo(),
         function(token, refreshToken, profile, done) {
+
             // TODO: promise
             // find a user by email
             self._findUserByEmail(profile.emails[0].value, function(error, user) {
