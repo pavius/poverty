@@ -1,4 +1,4 @@
-<md-dialog aria-label="Invoice">
+<md-dialog aria-label="Invoice" flex="35">
   <form>
     <md-toolbar>
       <div class="md-toolbar-tools">
@@ -9,22 +9,36 @@
 
     <div layout="column">
 
-      <md-content md-theme="docs-dark" layout-padding layout="column">
-        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote">
+      <md-content md-theme="docs-dark" layout-padding layout="row" flex>
+        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Supplier" flex="40">
           <md-option ng-repeat="quote in vm.relationships.quote.values" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
         </md-select>
+        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" flex="40">
+          <md-option ng-repeat="quote in vm.relationships.quote.values" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
+        </md-select>
+        <md-input-container flex="20">
+          <label>Amount</label>
+          <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px">
+        </md-input-container>
       </md-content>
 
-      <md-content layout="row" layout-padding>
-        <md-input-container>
-          <label>Amount</label>
-          <input ng-model="vm.resource.attributes.amount">
-        </md-input-container>
-        <p ng-show=vm.customController.url><a href={{vm.customController.url}}>INVOICE</a></p>
-        <md-button class="md-icon-button" style="margin-top: 10px" ng-click="vm.customController.scan()">
-          <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
-        </md-button>
-      </md-content>
+      <div>
+        <div layout="row" flex layout-align="end center">
+          <md-button class="md-icon-button" ng-click="vm.customController.scan()" style="width: 30px; margin-top: 10px">
+            <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label="" style="font-size: 24px"></md-icon>
+          </md-button>
+          <md-button class="md-icon-button" ng-click="vm.customController.scan()" style="width: 30px; margin-top: 10px">
+            <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
+          </md-button>
+        </div>
+        <div layout="column" style="margin-bottom: 20px">
+          <md-whiteframe class="md-whiteframe-z1" style="margin-right: 10px; margin-left: 10px">
+            <div layout="row" flex layout-align="center center" style="min-height: 50px">
+              <span style="color: #A9A9A9">No preview</span>
+            </div>
+          </md-whiteframe>
+        </div>
+      </div>
 
       <div class="md-actions" layout="row">
         <span flex></span>

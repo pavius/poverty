@@ -5,7 +5,7 @@
     angular
         .module('poverty', [ 'md.data.table', 'restangular', 'ngMaterial' ])
         .controller('PovertyController', [
-            '$scope', '$log', '$q',
+            '$timeout', '$scope', '$log', '$q',
             PovertyController
         ])
         .config(['$mdThemingProvider', 'RestangularProvider', '$httpProvider',
@@ -83,7 +83,7 @@
             }]); */
         }]);
 
-    function PovertyController($scope, $log, $q) {
+    function PovertyController($timeout, $scope, $log, $q) {
         var vm = this;
 
         vm.menuButtons = [
@@ -109,5 +109,9 @@
 
             $scope.$broadcast(button.event);
         }
+
+        /* $timeout(function() {
+          $scope.$broadcast('invoice.new');
+        }, 1000); */
     }
 })();

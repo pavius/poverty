@@ -31,7 +31,7 @@ function initialize(daemon) {
 
     // get auth info
     var authInfo = {
-        bypass: false,
+        bypass: config.poverty.authBypass,
         id: process.env.POVERTY_CLIENT_ID || 'local',
         secret: process.env.POVERTY_CLIENT_SECRET || 'local'
     };
