@@ -1,7 +1,7 @@
 'use strict';
 
 var bunyan = require('bunyan');
-var ApiService = require('./api_service');
+var ApiService = require('./api-service');
 var config = require('./config.js');
 
 function initializeLogger(daemon) {

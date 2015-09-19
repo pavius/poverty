@@ -10,8 +10,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr ng-repeat="quote in $root.quotes | orderBy: vm.order" ng-click="vm.onRecordClick($event, quote)">
-          <td>{{vm.getSupplierById(quote.relationships.supplier.data.id).attributes.name}}</td>
+        <tr ng-repeat="quote in vm.resourceCache.getResources('quotes') | orderBy: vm.order" ng-click="vm.onRecordClick($event, quote)">
+          <td>{{vm.resourceCache.getResourceById('suppliers', quote.relationships.supplier.data.id).attributes.name}}</td>
           <td>{{quote.attributes.delivery}}</td>
           <td>{{quote.attributes.cost}}</td>
           <td>{{quote.attributes.createdAt}}</td>

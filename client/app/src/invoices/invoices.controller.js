@@ -3,16 +3,16 @@
   angular
        .module('poverty')
        .controller('InvoicesController', [
-          '$rootScope', '$scope', 'ObjectDialogService', 'Restangular', InvoicesController
+          '$scope', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', InvoicesController
        ]);
 
-  function InvoicesController($rootScope, $scope, ObjectDialogService, Restangular) {
+  function InvoicesController($scope, ObjectDialogService, Restangular, ResourceCacheService) {
     var vm = this;
     vm.order = 'attributes.createdAt';
-    $rootScope.invoices = {};
+    vm.resourceCache = ResourceCacheService;
 
     Restangular.all('invoices').getList({include: 'quote'}).then(function(invoices) {
-      $rootScope.invoices = invoices;
+      ResourceCacheService.setResources('invoices', invoices);
     });
 
     $scope.$on('invoice.new', function() {
@@ -23,58 +23,135 @@
       vm.showDialog('update', $event, invoice);
     };
 
-    vm.getSupplierById = function(id) {
+    vm.getInvoiceSupplier = function(invoice) {
 
-      for (var supplierIdx = 0; supplierIdx < $rootScope.suppliers.length; ++supplierIdx)
-        if ($rootScope.suppliers[supplierIdx].id === id)
-          return $rootScope.suppliers[supplierIdx];
-    };
+      // the supplier could be directly attached to the invoice (if the invoice is issued directly to a supplier)
+      // or it could be through the invoice's quote
+      supplierId = _.get(invoice, 'relationships.supplier.data.id');
 
-    vm.getQuoteById = function(id) {
+      // if there's a supplier, prefer that
+      if (supplierId) {
+        return vm.resourceCache.getResourceById('suppliers', supplierId);
+      }
+      else {
 
-      for (var quoteIdx = 0; quoteIdx < $rootScope.quotes.length; ++quoteIdx)
-        if ($rootScope.quotes[quoteIdx].id === id)
-          return $rootScope.quotes[quoteIdx];
-    };
+        // get our quote directly and then pull the supplier from that
+        quote = vm.getInvoiceQuote(invoice);
+
+        if (quote) {
+          return vm.resourceCache.getResourceById('suppliers', quote.relationships.supplier.data.id);
+        }
+      }
+    }
+
+    vm.getInvoiceQuote = function(invoice) {
+
+        quoteId = _.get(invoice, 'relationships.quote.data.id');
+
+        if (quoteId) {
+          return vm.resourceCache.getResourceById('quotes', quoteId);
+        }
+    }
 
     vm.showDialog = function(mode, $event, invoice) {
 
       var self = this;
+      self.parent = vm;
 
       // create a modal controller, to be used as an extension
       function CustomController() {
 
         var vm = this;
+        vm.attachmentInProgress = false;
 
-        vm.scan = function() {
-          Restangular.one('invoices', 30).all('scans').post({
+        function getScanName(resource) {
+
+          // name starts with supplier
+          var scanName = sprintf('%s::', self.parent.getInvoiceSupplier(resource).attributes.name);
+
+          // if has a quote
+          var quote = self.parent.getInvoiceQuote(resource);
+          if (quote)
+            scanName += sprintf('%s::', quote.attributes.delivery);
+
+          // add date, amount, extension
+          scanName += sprintf('%d::', resource.attributes.amount);
+          scanName += Date.now();
+          scanName += '.pdf';
+
+          // replace spaces with underscores
+          scanName = scanName.replace(/ /g , '_');
+
+          return scanName;
+        }
+
+        vm.scan = function(resource) {
+
+          vm.attachmentInProgress = true;
+
+          // create a scan attachment. when we get its ID, store it
+          Restangular.all('attachments').post({
             data: {
               attributes: {
-                name: "from UI"
+                title: getScanName(resource),
+                type: "scan"
               }
             }
-          }).then(function(resource) {
+          }).then(function(attachment) {
 
-            console.log(resource);
-          }, function(error) {
+            // save the attachment as an attribute in the resource
+            resource.relationships.attachment = {data: {type: 'attachment', id: attachment.attributes.id}}
 
-            console.log(error);
+          }).finally(function() {
+
+            vm.attachmentInProgress = false;
           });
+        }
+
+        vm.cleanupResource = function(resource) {
+
+          // if quote is set, supplier must not be set. the supplier must be taken from
+          // the quote relationship
+          if (_.get(resource, 'relationships.quote.data.id') &&
+              resource.relationships.supplier) {
+            delete resource.relationships.supplier;
+          }
+        }
+
+        vm.allowModifyAttachment = function(resource) {
+          return resource.relationships.supplier.data.id && resource.attributes.amount;
         }
       }
 
       var relationships = {
+        supplier: {
+          type: 'supplier',
+          values: ResourceCacheService.getResources('suppliers')
+
+        },
         quote: {
           type: 'quote',
-          values: $rootScope.quotes
+          values: ResourceCacheService.getResources('quotes')
         }
       };
+
+      // if the invoice has a quote, we need to load the supplier id so that it will be displayed
+      // properly. this is because if a quote is selected, the resource does not contain the supllier
+      // id (which is taken from the quote)
+      if (invoice && _.get(invoice, 'relationships.quote.data.id')) {
+        invoice.relationships.supplier = {
+          data: {
+            id: vm.parent.getInvoiceSupplier(invoice).data.id,
+            type: 'supplier'
+          }
+        };
+      }
 
       ObjectDialogService.show($event,
         'invoice',
         mode,
         invoice,
-        $rootScope.invoices,
+        ResourceCacheService.getResources('invoices'),
         relationships,
         CustomController);
     };

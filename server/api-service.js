@@ -6,23 +6,23 @@ var util = require('util');
 var express = require('express');
 var bodyParser = require('body-parser');
 var onResponse = require('on-response');
-var request = require('request');
 var passport = require('passport');
 var passportGoogleOauth = require('passport-google-oauth');
-var google = require('googleapis');
 var fs = require('fs');
 var cors = require('cors');
 var expressSession = require('express-session');
 var rethinkdbSession = require('session-rethinkdb')(expressSession);
+var Attachments = require('./attachments')
+var Promise = require('bluebird');
 
 
 function ApiService(logger, db, rootUrl, scant_address, authInfo) {
 
     this._logger = logger;
     this._db = db;
-    this._scant_address = scant_address;
     this._authInfo = authInfo;
     this._rootUrl = rootUrl;
+    this._attachments = new Attachments(logger, scant_address);
 
     // create users
     this._users = {
@@ -31,8 +31,8 @@ function ApiService(logger, db, rootUrl, scant_address, authInfo) {
 
     this._initializeAuthentication();
     this._initializeExpress();
-    this._initModels();
     this._initRoutes();
+    this._initModels();
 
     this._logger.debug({scant_address: this._scant_address}, 'Initialized');
 }
@@ -65,9 +65,9 @@ ApiService.prototype._initializeExpress = function() {
     self._app.use(bodyParser.json({limit: '10mb'}));
 
     // parse url encoded params
-    self._app.use(bodyParser.urlencoded(/* {
+    self._app.use(bodyParser.urlencoded({
         extended: true
-    } */));
+    }));
 
     // log all requests and their responses
     self._app.use(function(request, response, next) {
@@ -124,21 +124,15 @@ ApiService.prototype._initModels = function() {
         paidAt: type.date(),
         quoteId: type.string(),
         supplierId: type.string(),
-        createdAt: type.date().default(self._db.r.now())
-    });
-
-    var Scan = self._db.createModel('scans', {
-        name: type.string(),
-        url: type.string(),
-        ownerType: type.string(),
-        ownerId: type.string(),
+        description: type.string(),
         createdAt: type.date().default(self._db.r.now())
     });
 
     self.User = self._db.createModel('users', {
         name: type.string(),
         email: type.string(),
-        token: type.string()
+        token: type.string(),
+        lastLogin: type.date()
     });
 
     //
@@ -152,9 +146,6 @@ ApiService.prototype._initModels = function() {
     Invoice.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
     Quote.hasMany(Invoice, 'invoices', 'id', 'quoteId');
 
-    Scan.belongsTo(Invoice, 'owner', 'ownerId', 'id');
-    Invoice.hasOne(Scan, 'scan', 'id', 'ownerId');
-
     //
     // register the routes for the resources
     //
@@ -162,28 +153,48 @@ ApiService.prototype._initModels = function() {
     self._registerResourceRoutes('suppliers', Supplier);
     self._registerResourceRoutes('quotes', Quote);
     self._registerResourceRoutes('invoices', Invoice);
-    self._registerResourceRoutes('scans', Scan);
 
     //
-    // register callbacks
+    // Overridden events
     //
 
-    Scan._onCreate = function(req, res, createdRecord) {
+    Invoice.onBeforeCreate = function(model, request, response) {
 
-        // submit the scan - scans and saves to google drive
-        self._createScan(req.user, createdRecord.name, createdRecord.id, function(error, scan) {
+        return new Promise(function(resolve, reject) {
 
-             if (error)
-                return error;
+            var createdResource = request.body;
 
-             // update scan
-             createdRecord.merge({url: scan.url}).save().then(function(result) {
-                 self._logger.debug({id: createdRecord.id, url: scan.url}, 'Updated scan');
-             }, function(error) {
-                 self._logger.debug({id: createdRecord.id, error: error}, 'Failed to update scan');
-             });
-         });
-    }
+            // does the resource have an "attachment" relationship? If so, we need to remove it and commit
+            // this staged attachment
+            if (createdResource.data.relationships && createdResource.data.relationships.attachment) {
+
+                // remove the attachment from the object, it's not supposed to be stored as a relationship
+                // in the database
+                var attachment = createdResource.data.relationships.attachment;
+                delete createdResource.data.relationships.attachment;
+
+                // lets commit the attachment (creates a file for it in drive and returns info
+                self._attachments.commit(request.user, attachment.data.id).spread(function (fileId, url, size) {
+
+                    // save the attachment file ID and URL
+                    createdResource.data.attributes.attachment = {
+                        fileId: fileId,
+                        size: size,
+                        url: url
+                    };
+
+                    resolve(createdResource);
+
+                }, function (error) {
+
+                    self._logger.warn({error: error.message}, 'Failed to commit attachment');
+                    reject(error);
+                });
+            } else {
+                resolve(createdResource);
+            }
+        });
+    };
 };
 
 ApiService.prototype._initRoutes = function() {
@@ -209,10 +220,30 @@ ApiService.prototype._initRoutes = function() {
                 failureRedirect : '/login'
             }));
 
+    //
+    // API
+    //
+
+    self._apiRouter = express.Router();
+
+    // reject unauthenticated requests
+    self._apiRouter.use(self._isLoggedInSendError.bind(self));
+
+    // register to /api
+    self._app.use('/api', self._apiRouter);
+
+    // register attachment routes
+    self._attachments.initRoutes(self._apiRouter);
+
+
+    //
+    // Catch all
+    //
+
     // root access to the application
     self._app.route('/*').all(function(request, response)
     {
-        response.send(403);
+        response.sendStatus(403);
     });
 };
 
@@ -498,18 +529,19 @@ ApiService.prototype._deserializeResourceToRecord = function(model, resource) {
 ApiService.prototype._handleCreate = function(model, req, res, next) {
 
     var self = this;
-    var instance = new model(self._deserializeResourceToRecord(model, req.body));
 
-    instance.save().then(function(createdRecord) {
+    model.onBeforeCreate(model, req, res).then(function(createdRecord) {
 
-        if (model._onCreate)
-            model._onCreate(req, res, createdRecord);
+        var instance = new model(self._deserializeResourceToRecord(model, createdRecord));
 
-        // TODO: for now, take the first element. However, may specify to _serializeRecordsToResources
-        // how we want to receive the result in the future
-        res.json({data: self._serializeRecordsToResources(createdRecord)[0]});
+        instance.save().then(function(createdRecord) {
 
-    }).error(self._handleError(res));
+            // TODO: for now, take the first element. However, may specify to _serializeRecordsToResources
+            // how we want to receive the result in the future
+            res.json({data: self._serializeRecordsToResources(createdRecord)[0]});
+        });
+
+    }).catch(self._handleError(res));
 };
 
 ApiService.prototype._handleUpdate = function(model, req, res, next) {
@@ -520,7 +552,7 @@ ApiService.prototype._handleUpdate = function(model, req, res, next) {
 
         matchingRecord.merge(self._deserializeResourceToRecord(model, req.body)).save().then(function(updatedRecord) {
 
-            res.send(204);
+            res.sendStatus(204);
         });
 
     }).error(self._handleError(res));
@@ -536,99 +568,62 @@ ApiService.prototype._handleDelete = function(model, req, res, next) {
 
             // if delete occurred successfully, saved flag should be turned off
             if (!deletedRecord.isSaved()) {
-                res.send(204);
+                res.sendStatus(204);
             } else {
-                res.send(500);
+                res.sendStatus(500);
             }
         })
 
     }).error(self._handleError(res));
 }
 
+ApiService.prototype._registerResourceEvents = function(model) {
+
+    model.onBeforeCreate = function(model, request, response) {
+
+        return new Promise(function(resolve, reject) {
+            resolve(request.body);
+        });
+    }
+}
+
 ApiService.prototype._registerResourceRoutes = function(name, model) {
 
     var self = this;
-    var apiRouter = express.Router();
 
     var root = util.format('/%s', name);
 
-    // reject unauthenticated requests
-    apiRouter.use(self._isLoggedInSendError.bind(self));
-
-    apiRouter.get(root, function(req, res, next) {
+    self._apiRouter.get(root, function(req, res, next) {
         self._handleGetList(model, req, res, next);
     });
 
-    apiRouter.get(root + '/:id', function(req, res, next) {
+    self._apiRouter.get(root + '/:id', function(req, res, next) {
         self._handleGetDetails(model, req, res, next);
     });
 
-    apiRouter.post(root, function(req, res, next) {
+    self._apiRouter.post(root, function(req, res, next) {
         self._handleCreate(model, req, res, next);
     });
 
-    apiRouter.patch(root + '/:id', function(req, res, next) {
+    self._apiRouter.patch(root + '/:id', function(req, res, next) {
         self._handleUpdate(model, req, res, next);
     });
 
-    apiRouter.delete(root + '/:id', function(req, res, next) {
+    self._apiRouter.delete(root + '/:id', function(req, res, next) {
         self._handleDelete(model, req, res, next);
     });
 
-    self._app.use('/api', apiRouter);
+    self._registerResourceEvents(model);
 };
 
 ApiService.prototype._handleError = function(res) {
-    return function(error) {
-        return res.send(500, {error: error.message});
-    }
-};
-
-ApiService.prototype._createScan = function(user, name, description, callback) {
 
     var self = this;
 
-    self._logger.debug({user: user.name}, 'Submitting scan request');
-
-    // create the scan, using a scant service
-    request.post(self._scant_address + '/scans', {encoding: null}, function(error, response, scanBody) {
-
-        if (!error && response.statusCode == 200) {
-
-            // upload this to google drive
-            self._createGoogleApi(user).drive.files.insert({
-                resource: {
-                    parents: [{
-                        "kind": "drive#fileLink",
-                        "id": user.povertyFolderId
-                    }],
-                    title: name,
-                    description: description
-                },
-                media: {
-                    mimeType: response.headers['Content-Type'],
-                    body: scanBody
-                }
-            }, function(error, resource) {
-
-                if (error) {
-                    self._logger.warn({user: user.name, error: error}, 'Failed to write scan');
-                    return callback(error);
-                }
-
-                self._logger.debug({user: user.name, id: resource.id}, 'Scan submitted successfully');
-
-                // we're done
-                return callback(null, {
-                    url: resource.alternateLink,
-                    size: resource.fileSize
-                });
-            });
-        } else {
-            self._logger.warn({error: error, status: response.statusCode}, 'Cannot submit scan');
-            return callback(error);
-        }
-    });
+    return function(error) {
+        self._logger.warn({error: error.message}, 'Failed to handle request');
+        return res.sendStatus(500, {error: error.message});
+    }
 };
 
 //
@@ -639,16 +634,14 @@ ApiService.prototype._verifyLoggedIn = function(request, response, errorScheme, 
 {
     var self = this;
 
-    if (self._authInfo.bypass || request.isAuthenticated())
-    {
+    if (self._authInfo.bypass || request.isAuthenticated()) {
         return next();
     }
-    else
-    {
+    else {
         if (errorScheme == 'redirect')
             response.redirect('/login');
         else
-            response.send(401);
+            response.sendStatus(401);
     }
 };
 
@@ -679,23 +672,24 @@ ApiService.prototype._getOauthInfo = function() {
     };
 };
 
-ApiService.prototype._findUserByEmail = function(email, callback) {
+ApiService.prototype._findUserByEmail = function(email) {
 
     var self = this;
 
-    self.User.filter({email: email}).run().then(function(user) {
+    return new Promise(function(resolve, reject) {
 
-        if (!user || user.length !== 1)
-            return callback(new Error('Too many results or some other weirdness'));
+        self.User.filter({email: email}).run().then(function(user) {
 
-        callback(null, user[0]);
+            if (!user || user.length !== 1)
+                reject(new Error('Too many results or some other weirdness'));
 
-    }, function(error) {
-        callback(new Error('Failed to find user with email'));
+            resolve(user[0]);
+
+        }, reject);
     });
 };
 
-ApiService.prototype._onUserAuthentication = function(user, token, refreshToken, callback) {
+ApiService.prototype._onUserAuthentication = function(user, token, refreshToken) {
 
     var self = this;
 
@@ -704,96 +698,21 @@ ApiService.prototype._onUserAuthentication = function(user, token, refreshToken,
     // update the user tokens
     user.token = token;
     user.refreshToken = refreshToken;
+    user.lastLogin = new Date();
 
-    // create application folder for user or get the ID if it exists
-    self._getPovertyFolderId(user, function(error, folderId) {
+    return new Promise(function(resolve, reject) {
 
-        if (error)
-            return callback(error);
+        // create application folder for user or get the ID if it exists
+        self._attachments.getDirectoryId(user).then(function(folderId) {
 
-        // save user authentication info and poverty id
-        user.povertyFolderId = folderId;
+            // save user authentication info and poverty id
+            user.povertyFolderId = folderId;
 
-        // save this to the database
-        user.save().then(function() {
-            callback();
-        }, function(error) {
-            callback(error);
-        });
+            // save this to the database
+            user.save().then(resolve, reject);
+
+        }, reject);
     });
-};
-
-ApiService.prototype._createGoogleApi = function(user) {
-
-    var self = this;
-
-    // create an oauth client with pre-loaded tokens
-    var oauthInfo = self._getOauthInfo();
-    var oauth2Client = new google.auth.OAuth2(oauthInfo.clientID,
-        oauthInfo.clientSecret,
-        oauthInfo.callbackURL);
-
-    oauth2Client.credentials = {
-        access_token: user.token,
-        refresh_token: user.refreshToken
-    };
-
-    // build API
-    var googleApi = {};
-    googleApi.drive = google.drive({version: 'v2', auth: oauth2Client});
-
-    return googleApi;
-}
-
-ApiService.prototype._getPovertyFolderId = function(user, callback) {
-
-    var self = this;
-
-    self._logger.debug({user: user.name}, 'Getting poverty folder');
-
-    // create the google api for the user, using the credentials stored in user
-    var googleApi = self._createGoogleApi(user);
-
-    // look for the poverty application directory
-    googleApi.drive.files.list({
-        q: 'title = ".poverty"'
-    }, function(error, resource) {
-
-        if (error) {
-            self._logger.debug({user: user.name, error: error}, 'Failed to list folders');
-            return callback(error);
-        }
-
-        // is there an id?
-        if (resource.items.length === 0) {
-
-            self._logger.debug({user: user.name}, 'Poverty folder doesn\'t exist, creating');
-
-            googleApi.drive.files.insert({
-                resource: {
-                    title: '.poverty',
-                    mimeType: 'application/vnd.google-apps.folder'
-                }
-            }, function(error, resource) {
-
-                if (error) {
-                    self._logger.warn({user: user.name, error: error}, 'Failed to create poverty folder');
-                    return callback(error);
-                }
-
-                self._logger.debug({user: user.name, id: user.povertyFolderId}, 'Poverty folder created successfully');
-                return callback(null, resource.id);
-            });
-        } else {
-
-            if (resource.items.length > 1) {
-                self._logger.warn({user: user.name}, 'Several poverty folders exist, using first');
-            }
-
-            self._logger.debug({user: user.name, id: user.povertyFolderId}, 'Poverty folder exists');
-            return callback(null, resource.items[0].id);
-        }
-    })
 };
 
 ApiService.prototype._initializeAuthentication = function() {
@@ -809,17 +728,14 @@ ApiService.prototype._initializeAuthentication = function() {
     });
 
     passport.deserializeUser(function(id, done) {
+
         // find user by id
         self.User.get(id).run().then(function(user) {
 
             // report back
             done(null, user);
 
-        }, function(error) {
-
-            // repor error
-            done(error);
-        });
+        }, done);
     });
 
     //
@@ -831,26 +747,12 @@ ApiService.prototype._initializeAuthentication = function() {
 
             // TODO: promise
             // find a user by email
-            self._findUserByEmail(profile.emails[0].value, function(error, user) {
-
-                if (error)
-                    return done(error);
+            self._findUserByEmail(profile.emails[0].value).then(function(user) {
 
                 // handle user login - will save tokens, create directory if needed
-                self._onUserAuthentication(user, token, refreshToken, function(error) {
+                self._onUserAuthentication(user, token, refreshToken).asCallback(done);
 
-                    if (error)
-                        return done(error);
-
-                    // if a user is found, log them in
-                    return done(null, user);
-                });
-
-            }, function(error) {
-
-                // something bad happened
-                return done(new Error('Failed to save token in user'));
-            });
+            }, done);
         })
     );
 };

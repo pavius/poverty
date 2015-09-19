@@ -50,6 +50,11 @@
     return {
       show: function($event, model, mode, resource, resources, relationships, customController) {
 
+        function cleanupResource(controller, resource) {
+          if (controller && controller.cleanupResource)
+            controller.cleanupResource(resource);
+        }
+
         var plural_model = pluralize(model);
         var rest = Restangular.all(plural_model);
 
@@ -81,6 +86,8 @@
             // added?
             if (mode === 'add') {
 
+              cleanupResource(dialogResult.customController, dialogResult.resource);
+
               rest.post({data: dialogResult.resource}).then(function(backendResult) {
 
                 // backend dialogResult *should* be resource with its resource.id populated
@@ -99,6 +106,8 @@
 
               // if updated
               if (dialogResult.action === 'ok') {
+
+                cleanupResource(dialogResult.customController, dialogResult.resource);
 
                 // patch on backenbd
                 rest.one(dialogResult.resource.id).patch({data: dialogResult.resource}).then(function(backendResult) {
@@ -162,7 +171,8 @@
       vm.close = function(action) {
         $mdDialog.hide({
           action: action,
-          resource: vm.resource
+          resource: vm.resource,
+          customController: vm.customController
         });
     };
   }

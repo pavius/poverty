@@ -3,16 +3,16 @@
   angular
        .module('poverty')
        .controller('QuotesController', [
-          '$rootScope', '$scope', 'ObjectDialogService', 'Restangular', QuotesController
+          '$rootScope', '$scope', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', QuotesController
        ]);
 
-  function QuotesController($rootScope, $scope, ObjectDialogService, Restangular) {
+  function QuotesController($rootScope, $scope, ObjectDialogService, Restangular, ResourceCacheService) {
     var vm = this;
     vm.order = 'attributes.createdAt';
-    $rootScope.quotes = {};
+    vm.resourceCache = ResourceCacheService;
 
     Restangular.all('quotes').getList({include: 'supplier'}).then(function(quotes) {
-      $rootScope.quotes = quotes;
+      ResourceCacheService.setResources('quotes', quotes);
     });
 
     $scope.$on('quote.new', function() {
@@ -23,19 +23,12 @@
       vm.showDialog('update', $event, quote);
     };
 
-    vm.getSupplierById = function(id) {
-
-      for (var supplierIdx = 0; supplierIdx < $rootScope.suppliers.length; ++supplierIdx)
-        if ($rootScope.suppliers[supplierIdx].id === id)
-          return $rootScope.suppliers[supplierIdx];
-    };
-
     vm.showDialog = function(mode, $event, quote) {
 
       var relationships = {
         supplier: {
           type: 'supplier',
-          values: $rootScope.suppliers
+          values: ResourceCacheService.getResources('suppliers')
         }
       };
 
@@ -43,7 +36,7 @@
         'quote',
         mode,
         quote,
-        $rootScope.quotes,
+        vm.resourceCache.getResources('quotes'),
         relationships);
     };
   }

@@ -3,17 +3,17 @@
   angular
        .module('poverty')
        .controller('SuppliersController', [
-          '$rootScope', '$scope', 'ObjectDialogService', 'Restangular', SuppliersController
+          '$rootScope', '$scope', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', SuppliersController
        ]);
 
-  function SuppliersController($rootScope, $scope, ObjectDialogService, Restangular) {
+  function SuppliersController($rootScope, $scope, ObjectDialogService, Restangular, ResourceCacheService) {
 
     var vm = this;
-    vm.order = 'attributes.createdAt'
-    $rootScope.suppliers = {};
+    vm.order = 'attributes.createdAt';
+    vm.resourceCache = ResourceCacheService;
 
     Restangular.all('suppliers').getList().then(function(suppliers) {
-      $rootScope.suppliers = suppliers;
+      ResourceCacheService.setResources('suppliers', suppliers);
     });
 
     $scope.$on('supplier.new', function() {
@@ -30,7 +30,7 @@
         'supplier',
         mode,
         supplier,
-        $rootScope.suppliers);
+        ResourceCacheService.getResources('suppliers'));
     }
   }
 })();

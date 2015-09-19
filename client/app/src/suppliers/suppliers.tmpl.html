@@ -12,7 +12,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr ng-repeat="supplier in $root.suppliers | orderBy: vm.order" ng-click="vm.onRecordClick($event, supplier)">
+        <tr ng-repeat="supplier in vm.resourceCache.getResources('suppliers') | orderBy: vm.order" ng-click="vm.onRecordClick($event, supplier)">
           <td>{{supplier.attributes.name}}</td>
           <td>{{supplier.attributes.email}}</td>
           <td>{{supplier.attributes.phoneNumber}}</td>

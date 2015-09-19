@@ -5,16 +5,17 @@
         <h4>Invoice</h4>
         <span flex></span>
       </div>
+
+      <md-progress-linear ng-if="vm.customController.attachmentInProgress" md-mode="indeterminate"></md-progress-linear>
     </md-toolbar>
 
     <div layout="column">
-
       <md-content md-theme="docs-dark" layout-padding layout="row" flex>
-        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Supplier" flex="40">
-          <md-option ng-repeat="quote in vm.relationships.quote.values" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
+        <md-select ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier" flex="40">
+          <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">{{supplier.attributes.name}}</md-option>
         </md-select>
-        <md-select ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" flex="40">
-          <md-option ng-repeat="quote in vm.relationships.quote.values" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
+        <md-select ng-disabled="!vm.resource.relationships.supplier.data.id" ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" flex="40">
+          <md-option ng-repeat="quote in vm.relationships.quote.values | filter: {relationships: {supplier: {data: {id: vm.resource.relationships.supplier.data.id}}}}" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
         </md-select>
         <md-input-container flex="20">
           <label>Amount</label>
@@ -22,23 +23,36 @@
         </md-input-container>
       </md-content>
 
-      <div>
-        <div layout="row" flex layout-align="end center">
-          <md-button class="md-icon-button" ng-click="vm.customController.scan()" style="width: 30px; margin-top: 10px">
-            <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label="" style="font-size: 24px"></md-icon>
-          </md-button>
-          <md-button class="md-icon-button" ng-click="vm.customController.scan()" style="width: 30px; margin-top: 10px">
-            <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
-          </md-button>
-        </div>
-        <div layout="column" style="margin-bottom: 20px">
-          <md-whiteframe class="md-whiteframe-z1" style="margin-right: 10px; margin-left: 10px">
+      <md-content layout-padding>
+        <md-input-container flex>
+          <label>Description</label>
+          <input ng-model="vm.resource.attributes.description">
+        </md-input-container>
+      </md-content>
+
+      <md-content layout-padding>
+        <div layout="row">
+          <md-whiteframe class="md-whiteframe-z1" flex>
             <div layout="row" flex layout-align="center center" style="min-height: 50px">
               <span style="color: #A9A9A9">No preview</span>
             </div>
           </md-whiteframe>
+          <md-button
+            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
+            class="md-icon-button"
+            ng-click="vm.customController.upload(vm.resource)"
+            style="width: 30px">
+            <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label="" style="font-size: 24px"></md-icon>
+          </md-button>
+          <md-button
+            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
+            class="md-icon-button"
+            ng-click="vm.customController.scan(vm.resource)"
+            style="width: 30px">
+            <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
+          </md-button>
         </div>
-      </div>
+      </md-content>
 
       <div class="md-actions" layout="row">
         <span flex></span>
@@ -48,11 +62,10 @@
         <md-button ng-click="vm.close('cancel')" >
           Cancel
         </md-button>
-        <md-button class=md-primary ng-click="vm.close('ok')" style="margin-right:20px;">
+        <md-button class=md-primary ng-disabled="vm.customController.attachmentInProgress" ng-click="vm.close('ok')" style="margin-right:20px;">
           {{vm.mode}}
         </md-button>
       </div>
-
     </div>
   </form>
 </md-dialog>

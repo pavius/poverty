@@ -5,18 +5,18 @@
         <tr md-disable-select>
           <th name="Supplier"></th>
           <th name="Quote"></th>
+          <th name="Description"></th>
           <th name="Amount"></th>
-          <th name="Scan"></th>
           <th name="Paid at"></th>
           <th order-by="attributes.createdAt" name="Created at"></th>
         </tr>
       </thead>
       <tbody>
-        <tr ng-repeat="invoice in $root.invoices | orderBy: vm.order" ng-click="vm.onRecordClick($event, invoice)">
-          <td>{{vm.getSupplierById(vm.getQuoteById(invoice.relationships.quote.data.id).relationships.supplier.data.id).attributes.name}}</td>
-          <td>{{vm.getQuoteById(invoice.relationships.quote.data.id).attributes.delivery}}</td>
+        <tr ng-repeat="invoice in vm.resourceCache.getResources('invoices') | orderBy: vm.order" ng-click="vm.onRecordClick($event, invoice)">
+          <td>{{vm.getInvoiceSupplier(invoice).attributes.name}}</td>
+          <td>{{vm.getInvoiceQuote(invoice).attributes.delivery}}</td>
+          <td>{{invoice.attributes.description}}</td>
           <td>{{invoice.attributes.amount}}</td>
-          <td><a href={{invoice.attributes.scanUrl}}>Invoice</a></td>
           <td>{{invoice.attributes.paidAt}}</td>
           <td>{{invoice.attributes.createdAt}}</td>
         </tr>
