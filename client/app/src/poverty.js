@@ -15,52 +15,72 @@
               .primaryPalette('yellow')
               .dark();
 
-            //
-            RestangularProvider.setBaseUrl('http://poverty.localtunnel.me/api/');
+            function _initializeRestangular() {
 
-            // this is to set Access-Control-Allow-Credentials which apparently allows cookies in cross
-            // origin requests, otherwise each request set its own cookie and ignored the fact that
-            // there was a cookie for the API origin
-            RestangularProvider.setDefaultHttpFields({
-                withCredentials: true
-            });
+              RestangularProvider.setBaseUrl('http://poverty.localtunnel.me/api/');
 
-            // add a response interceptor
-            RestangularProvider.addResponseInterceptor(function(data, operation, what, url, response, deferred) {
+              // this is to set Access-Control-Allow-Credentials which apparently allows cookies in cross
+              // origin requests, otherwise each request set its own cookie and ignored the fact that
+              // there was a cookie for the API origin
+              RestangularProvider.setDefaultHttpFields({
+                  withCredentials: true
+              });
 
-              if (data.data) {
-                var extractedData = data.data;
-                extractedData.meta = data.meta;
-                extractedData.included = data.included;
+              // add a response interceptor
+              RestangularProvider.addResponseInterceptor(function(data, operation, what, url, response, deferred) {
 
-                function _apply(elem, fct) {
-                  if (elem !== undefined){
-                    if (elem.type !== undefined) {
-                      fct(elem);
-                    } else {
-                      _.forEach(elem, function(el) {
-                        _apply(el, fct);
-                      });
+                if (data.data) {
+                  var extractedData = data.data;
+                  extractedData.meta = data.meta;
+                  extractedData.included = data.included;
+
+                  function _apply(elem, fct) {
+                    if (elem !== undefined){
+                      if (elem.type !== undefined) {
+                        fct(elem);
+                      } else {
+                        _.forEach(elem, function(el) {
+                          _apply(el, fct);
+                        });
+                      }
                     }
                   }
-                }
 
-                _apply(data.data, function(elem) {
-                  _apply(elem.relationships, function(rel) {
-                    rel.getIncluded = function(){
-                      return _.find(extractedData.included, function(included) {
-                        return (included.type == rel.type) && (included.id == rel.id);
-                      });
-                    };
+                  _apply(data.data, function(elem) {
+                    _apply(elem.relationships, function(rel) {
+                      rel.getIncluded = function(){
+                        return _.find(extractedData.included, function(included) {
+                          return (included.type == rel.type) && (included.id == rel.id);
+                        });
+                      };
+                    });
                   });
-                });
 
-                return extractedData;
+                  return extractedData;
 
-              } else {
-                return data;
-              }
-            });
+                } else {
+                  return data;
+                }
+              });
+            }
+
+            _initializeRestangular();
+            // _initializeInterceptor();
+
+            // intercept any 401 responses to keep the user logged in
+            /* $httpProvider.interceptors.push(['$rootScope', '$q',
+              function($rootScope, $q) {
+                return {
+                    responseError: function(rejection) {
+
+                        if (rejection.status === 401) {
+                          window.location = "http://poverty.localtunnel.me/login";
+                        } else {
+                          return $q.reject(rejection);
+                        }
+                    }
+                };
+            }]); */
         }]);
 
     function PovertyController($scope, $log, $q) {

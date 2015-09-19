@@ -650,7 +650,7 @@ ApiService.prototype._verifyLoggedIn = function(request, response, errorScheme, 
         else
             response.send(401);
     }
-}
+};
 
 ApiService.prototype._isLoggedInRedirect = function(request, response, next)
 {
@@ -715,7 +715,9 @@ ApiService.prototype._onUserAuthentication = function(user, token, refreshToken,
         user.povertyFolderId = folderId;
 
         // save this to the database
-        user.save().then(function(error) {
+        user.save().then(function() {
+            callback();
+        }, function(error) {
             callback(error);
         });
     });
