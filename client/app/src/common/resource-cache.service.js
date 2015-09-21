@@ -21,6 +21,10 @@
 
       getResourceById: function(name, id) {
 
+        // could be asking for resources before they were added
+        if (!resourceCache[name])
+          return;
+
         for (var idx = 0; idx < resourceCache[name].length; ++idx)
           if (resourceCache[name][idx].id === id)
             return resourceCache[name][idx];

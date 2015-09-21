@@ -174,13 +174,14 @@ ApiService.prototype._initModels = function() {
                 delete createdResource.data.relationships.attachment;
 
                 // lets commit the attachment (creates a file for it in drive and returns info
-                self._attachments.commit(request.user, attachment.data.id).spread(function (fileId, url, size) {
+                self._attachments.commit(request.user, attachment.data.id).spread(function (fileId, url, size, preview) {
 
                     // save the attachment file ID and URL
                     createdResource.data.attributes.attachment = {
                         fileId: fileId,
                         size: size,
-                        url: url
+                        url: url,
+                        preview: preview
                     };
 
                     resolve(createdResource);

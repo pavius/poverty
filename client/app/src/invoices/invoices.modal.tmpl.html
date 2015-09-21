@@ -34,7 +34,10 @@
         <div layout="row">
           <md-whiteframe class="md-whiteframe-z1" flex>
             <div layout="row" flex layout-align="center center" style="min-height: 50px">
-              <span style="color: #A9A9A9">No preview</span>
+              <img
+                data-ng-src="data:image/png;base64,{{vm.customController.attachment.attributes.preview}}"
+                data-err-src="images/png/avatar.png"
+                style="max-width: 355px">
             </div>
           </md-whiteframe>
           <md-button

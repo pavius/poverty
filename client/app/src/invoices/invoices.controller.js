@@ -63,6 +63,7 @@
 
         var vm = this;
         vm.attachmentInProgress = false;
+        vm.attachment = {attributes: _.get(invoice, 'attributes.attachment')};
 
         function getScanName(resource) {
 
@@ -100,7 +101,10 @@
           }).then(function(attachment) {
 
             // save the attachment as an attribute in the resource
-            resource.relationships.attachment = {data: {type: 'attachment', id: attachment.attributes.id}}
+            resource.relationships.attachment = {data: {type: attachment.type, id: attachment.id}};
+
+            // save it as part of the controller so it can be displayed
+            vm.attachment = attachment;
 
           }).finally(function() {
 
@@ -119,7 +123,7 @@
         }
 
         vm.allowModifyAttachment = function(resource) {
-          return resource.relationships.supplier.data.id && resource.attributes.amount;
+          return _.get(resource, 'relationships.supplier.data.id') && _.get(resource, 'attributes.amount');
         }
       }
 
@@ -141,7 +145,7 @@
       if (invoice && _.get(invoice, 'relationships.quote.data.id')) {
         invoice.relationships.supplier = {
           data: {
-            id: vm.parent.getInvoiceSupplier(invoice).data.id,
+            id: vm.parent.getInvoiceSupplier(invoice).id,
             type: 'supplier'
           }
         };

@@ -4,6 +4,10 @@ var request = require('request');
 var Promise = require('bluebird');
 var uuid = require('node-uuid');
 var google = require('googleapis');
+var PDFImage = require("pdf-image").PDFImage;
+var tmp = require('tmp');
+var fs = require('fs');
+
 
 function Attachments(logger, scant_address) {
 
@@ -110,7 +114,7 @@ Attachments.prototype.commit = function(user, stagedAttachmentId) {
             delete self._stagedAttachments[stagedAttachmentId];
 
             // we're done
-            return resolve([resource.id, resource.alternateLink, resource.fileSize]);
+            return resolve([resource.id, resource.alternateLink, resource.fileSize, stagedAttachment.preview]);
         });
     });
 };
@@ -125,9 +129,10 @@ Attachments.prototype.initRoutes = function(router) {
 
             response.status(201).json({
                 data: {
+                    id: attachment.id,
+                    type: 'attachment',
                     attributes: {
-                        id: attachment.id,
-                        length: attachment.length
+                        preview: attachment.preview
                     }
                 }
             });
@@ -135,6 +140,48 @@ Attachments.prototype.initRoutes = function(router) {
         }, function(error) {
 
             response.sendStatus(500);
+        });
+    });
+};
+
+Attachments.prototype._createPreview = function(buffer) {
+
+    return new Promise(function(resolve, reject) {
+
+        // first we need to save to a file because that's how the pdf thingie works
+        tmp.file(function(err, path, fd, deleteTempFile) {
+
+            if (err)
+                return reject(err);
+
+            // write the buffer to the file
+            fs.write(fd, buffer, 0, buffer.length, function(err, written, buffer) {
+
+                if (err) {
+                    deleteTempFile();
+                    return reject(err);
+                }
+
+                // load the pdf and covert the PDF
+                var pdfImage = new PDFImage(path);
+                pdfImage.convertPage(0).then(function(previewImagePath) {
+
+                    // read the file
+                    fs.readFile(previewImagePath, function(err, previewImageBuffer) {
+
+                        // delete the preview image since we already loaded to buffer
+                        deleteTempFile();
+                        fs.unlink(previewImagePath);
+
+                        // return the preview
+                        resolve(previewImageBuffer.toString('base64'));
+                    });
+
+                }, function(error) {
+                    deleteTempFile();
+                    reject(error);
+                });
+            });
         });
     });
 };
@@ -147,32 +194,33 @@ Attachments.prototype._create = function(user, attributes) {
 
         self._getMedia(attributes).spread(function(media, contentType) {
 
-            // once we have the media, we need to create a preview for it
-            // TODO
+            self._createPreview(media).then(function(previewImage) {
 
-            // create an attachment object
-            var attachmentId = uuid.v4();
-            var attachment = {
-                id: attachmentId,
-                user: user,
-                media: media,
-                contentType: contentType,
-                length: media.length,
-                title: attributes.title
-            };
+                // create an attachment object
+                var attachmentId = uuid.v4();
+                var attachment = {
+                    id: attachmentId,
+                    user: user,
+                    media: media,
+                    contentType: contentType,
+                    length: media.length,
+                    title: attributes.title,
+                    preview: previewImage
+                };
 
-            self._logger.debug({id: attachmentId}, 'Staged attachment created');
+                self._logger.debug({id: attachmentId}, 'Staged attachment created');
 
-            // shove to attachments
-            self._stagedAttachments[attachmentId] = attachment;
+                // shove to attachments
+                self._stagedAttachments[attachmentId] = attachment;
 
-            // resolve with the attachment
-            resolve(attachment);
+                // resolve with the attachment
+                resolve(attachment);
 
-        }, function(error) {
+            }, function(error) {
 
-            self._logger.debug('Failed to get media from scant');
-            reject(error);
+                self._logger.debug('Failed to get media from scant');
+                reject(error);
+            });
         });
     });
 };
