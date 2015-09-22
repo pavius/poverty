@@ -163,7 +163,10 @@ Attachments.prototype._createPreview = function(buffer) {
                 }
 
                 // load the pdf and covert the PDF
-                var pdfImage = new PDFImage(path);
+                var pdfImage = new PDFImage(path, {
+                    convertExtension: 'jpeg',
+                    convertOptions: {'-resize': '50%'}
+                });
                 pdfImage.convertPage(0).then(function(previewImagePath) {
 
                     // read the file
