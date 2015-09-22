@@ -306,9 +306,30 @@ ApiService.prototype._getRecordAttributes = function(record, joins, fields) {
     // if the fields for the type have been selected, use only those fields
     if (fields) {
 
-        _.forEach(fields, function(field) {
-            attributes[field] = record[field];
-        })
+        // if the first field starts with "-", assume that all fields passed
+        // are "except this field"
+        if (fields[0].substring(0, 1) === '-') {
+
+            // get the fields which should be excluded (remove "-" prefix)
+            var excludedFields = _.map(fields, function(field) {
+                return field.substring(1, field.length);
+            });
+
+            // build attributes (ugh)
+            _.forOwn(record, function(value, key) {
+
+                // set into attributes if not excluded
+                if (excludedFields.indexOf(key) === -1)
+                    attributes[key] = value;
+            });
+
+        } else {
+
+            // take all fields specified by the fields
+            _.forEach(fields, function(field) {
+                attributes[field] = record[field];
+            });
+        }
 
     } else {
         _.forOwn(record, function(value, name) {

@@ -1,17 +1,18 @@
-(function(){
+(function() {
 
   angular
        .module('poverty')
        .controller('InvoicesController', [
-          '$scope', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', InvoicesController
+          '$q', '$scope', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', InvoicesController
        ]);
 
-  function InvoicesController($scope, ObjectDialogService, Restangular, ResourceCacheService) {
+  function InvoicesController($q, $scope, ObjectDialogService, Restangular, ResourceCacheService) {
     var vm = this;
     vm.order = 'attributes.createdAt';
     vm.resourceCache = ResourceCacheService;
 
-    Restangular.all('invoices').getList({include: 'quote'}).then(function(invoices) {
+    // get invoices with quotes but don't get attachment
+    Restangular.all('invoices').getList({include: 'quote', 'fields[invoice]': '-attachment'}).then(function(invoices) {
       ResourceCacheService.setResources('invoices', invoices);
     });
 
@@ -139,25 +140,46 @@
         }
       };
 
-      // if the invoice has a quote, we need to load the supplier id so that it will be displayed
-      // properly. this is because if a quote is selected, the resource does not contain the supllier
-      // id (which is taken from the quote)
-      if (invoice && _.get(invoice, 'relationships.quote.data.id')) {
-        invoice.relationships.supplier = {
-          data: {
-            id: vm.parent.getInvoiceSupplier(invoice).id,
-            type: 'supplier'
-          }
-        };
-      }
+      $q(function(resolve, reject) {
 
-      ObjectDialogService.show($event,
-        'invoice',
-        mode,
-        invoice,
-        ResourceCacheService.getResources('invoices'),
-        relationships,
-        CustomController);
-    };
+        // if invoice is set and there's no attachment, we need to get its attachment, since we didn't get it when we listed it
+        if (invoice && !_.get(invoice, 'attributes.attachment')) {
+
+          // get the invoice's attachment
+          Restangular.all('invoices').one(invoice.id).get({'fields[invoice]': 'attachment'}).then(function(invoiceWithAttachment) {
+
+            // add attachment to invoice
+            invoice.attributes.attachment = invoiceWithAttachment.attributes.attachment;
+            console.log(invoice.attributes.attachment.preview.length);
+
+            // we're done
+            resolve();
+          });
+
+        } else resolve();
+
+      }).finally(function() {
+
+        // if the invoice has a quote, we need to load the supplier id so that it will be displayed
+        // properly. this is because if a quote is selected, the resource does not contain the supllier
+        // id (which is taken from the quote)
+        if (invoice && _.get(invoice, 'relationships.quote.data.id')) {
+          invoice.relationships.supplier = {
+            data: {
+              id: vm.parent.getInvoiceSupplier(invoice).id,
+              type: 'supplier'
+            }
+          };
+        }
+
+        ObjectDialogService.show($event,
+          'invoice',
+          mode,
+          invoice,
+          ResourceCacheService.getResources('invoices'),
+          relationships,
+          CustomController);
+      });
+    }
   }
 })();
