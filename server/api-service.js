@@ -132,6 +132,7 @@ ApiService.prototype._initModels = function() {
         name: type.string(),
         email: type.string(),
         token: type.string(),
+        refreshToken: type.string(),
         lastLogin: type.date()
     });
 
@@ -210,7 +211,9 @@ ApiService.prototype._initRoutes = function() {
         scope: [
             'email',
             'https://www.googleapis.com/auth/drive'
-        ]
+        ],
+        accessType: 'offline',
+        approvalPrompt: 'force'
     }));
 
     // callback from google

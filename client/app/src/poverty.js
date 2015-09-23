@@ -68,7 +68,7 @@
             // _initializeInterceptor();
 
             // intercept any 401 responses to keep the user logged in
-            /* $httpProvider.interceptors.push(['$rootScope', '$q',
+            $httpProvider.interceptors.push(['$rootScope', '$q',
               function($rootScope, $q) {
                 return {
                     responseError: function(rejection) {
@@ -80,7 +80,7 @@
                         }
                     }
                 };
-            }]); */
+            }]);
         }]);
 
     function PovertyController($timeout, $scope, $log, $q) {
