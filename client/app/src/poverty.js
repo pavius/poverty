@@ -3,7 +3,7 @@
 
     // Prepare the 'users' module for subsequent registration of controllers and delegates
     angular
-        .module('poverty', [ 'md.data.table', 'restangular', 'ngMaterial' ])
+        .module('poverty', [ 'md.data.table', 'restangular', 'ngMaterial', 'ngFileUpload'])
         .controller('PovertyController', [
             '$timeout', '$scope', '$log', '$q',
             PovertyController

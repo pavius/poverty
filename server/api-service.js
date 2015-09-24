@@ -70,7 +70,8 @@ ApiService.prototype._initializeExpress = function() {
     }));
 
     // log all requests and their responses
-    self._app.use(function(request, response, next) {
+    // TODO: return this once printing large bodies is handled properly
+    /* self._app.use(function(request, response, next) {
 
         onResponse(request, response, function (error) {
             if (error)
@@ -83,7 +84,7 @@ ApiService.prototype._initializeExpress = function() {
                 self._logger.warn({request: request, response: response});
         });
         next();
-    });
+    }); */
 
     self._app.use(expressSession({
         resave: true,

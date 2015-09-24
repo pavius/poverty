@@ -66,43 +66,27 @@
         vm.attachmentInProgress = false;
         vm.attachment = {attributes: _.get(invoice, 'attributes.attachment')};
 
-        function getScanName(resource) {
+        function arrayBufferToBase64(buffer) {
+          var bytes = new Uint8Array(buffer);
+          var binary = '';
 
-          // name starts with supplier
-          var scanName = sprintf('%s::', self.parent.getInvoiceSupplier(resource).attributes.name);
+          for (var i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
 
-          // if has a quote
-          var quote = self.parent.getInvoiceQuote(resource);
-          if (quote)
-            scanName += sprintf('%s::', quote.attributes.delivery);
-
-          // add date, amount, extension
-          scanName += sprintf('%d::', resource.attributes.amount);
-          scanName += Date.now();
-          scanName += '.pdf';
-
-          // replace spaces with underscores
-          scanName = scanName.replace(/ /g , '_');
-
-          return scanName;
+          return window.btoa(binary);
         }
 
-        vm.scan = function(resource) {
+        function createAttachment(invoiceResource, attachmentResource) {
 
+          // indicate for ui purposes that we've started upload
           vm.attachmentInProgress = true;
 
           // create a scan attachment. when we get its ID, store it
-          Restangular.all('attachments').post({
-            data: {
-              attributes: {
-                title: getScanName(resource),
-                type: "scan"
-              }
-            }
-          }).then(function(attachment) {
+          Restangular.all('attachments').post(attachmentResource).then(function(attachment) {
 
             // save the attachment as an attribute in the resource
-            resource.relationships.attachment = {data: {type: attachment.type, id: attachment.id}};
+            invoiceResource.relationships.attachment = {data: {type: attachment.type, id: attachment.id}};
 
             // save it as part of the controller so it can be displayed
             vm.attachment = attachment;
@@ -113,6 +97,70 @@
           });
         }
 
+        function getScanName(invoiceResource, extension) {
+
+          // name starts with supplier
+          var scanName = sprintf('%s::', self.parent.getInvoiceSupplier(invoiceResource).attributes.name);
+
+          // if has a quote
+          var quote = self.parent.getInvoiceQuote(invoiceResource);
+          if (quote)
+            scanName += sprintf('%s::', quote.attributes.delivery);
+
+          // add date, amount, extension
+          scanName += sprintf('%d::', invoiceResource.attributes.amount);
+          scanName += Date.now();
+          scanName += '.' + extension;
+
+          // replace spaces with underscores
+          scanName = scanName.replace(/ /g , '_');
+
+          return scanName;
+        }
+
+        vm.uploadAttachment = function(invoiceResource, file) {
+
+          if (!file) return;
+
+          var reader = new FileReader();
+
+          // once we're done loading the file, convert to base64
+          reader.onload = function() {
+
+            // get file extension from content type (default to pdf)
+            var extension = file.type.split('/')[1] || 'pdf';
+
+            var attachmentResource = {
+              data: {
+                attributes: {
+                  title: getScanName(invoiceResource, extension),
+                  type: "media",
+                  contentType: file.type,
+                  contents: arrayBufferToBase64(reader.result)
+                }
+              }
+            };
+
+            createAttachment(invoiceResource, attachmentResource);
+          };
+
+          reader.readAsArrayBuffer(file);
+        };
+
+        vm.scan = function(invoiceResource) {
+
+          var attachmentResource = {
+            data: {
+              attributes: {
+                title: getScanName(invoiceResource, 'pdf'),
+                type: "scan"
+              }
+            }
+          };
+
+          createAttachment(invoiceResource, attachmentResource);
+        };
+
         vm.cleanupResource = function(resource) {
 
           // if quote is set, supplier must not be set. the supplier must be taken from
@@ -121,7 +169,7 @@
               resource.relationships.supplier) {
             delete resource.relationships.supplier;
           }
-        }
+        };
 
         vm.allowModifyAttachment = function(resource) {
           return _.get(resource, 'relationships.supplier.data.id') && _.get(resource, 'attributes.amount');

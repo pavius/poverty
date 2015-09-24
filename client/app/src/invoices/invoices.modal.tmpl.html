@@ -43,7 +43,7 @@
           <md-button
             ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
             class="md-icon-button"
-            ng-click="vm.customController.upload(vm.resource)"
+            ngf-select="vm.customController.uploadAttachment(vm.resource, $file)"
             style="width: 30px">
             <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label="" style="font-size: 24px"></md-icon>
           </md-button>

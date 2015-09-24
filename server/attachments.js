@@ -221,7 +221,7 @@ Attachments.prototype._create = function(user, attributes) {
 
             }, function(error) {
 
-                self._logger.debug('Failed to get media from scant');
+                self._logger.debug({error: error.message}, 'Failed to create preview');
                 reject(error);
             });
         });
@@ -275,10 +275,10 @@ Attachments.prototype._getMedia = function(attributes) {
         // uploaded
         } else {
 
-            self._logger.debug({size: attributes.media.length}, 'Uploaded media received successfully');
+            self._logger.debug({size: attributes.contents.length, contentType: attributes.contentType}, 'Uploaded media received successfully');
 
             // just return the media immediately
-            resolve([attributes.media, attributes.contentType]);
+            resolve([new Buffer(attributes.contents, 'base64'), attributes.contentType]);
         }
     });
 };
