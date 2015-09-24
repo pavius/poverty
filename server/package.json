@@ -52,12 +52,24 @@
     "test": "gulp travis"
   },
   "dependencies": {
+    "bluebird": "^2.10.1",
     "body-parser": "^1.13.3",
     "bunyan": "^1.5.1",
+    "cors": "^2.7.1",
     "express": "^4.13.3",
+    "express-session": "^1.11.3",
+    "express-session-rethinkdb": "^0.2.0",
+    "googleapis": "^2.1.5",
     "lodash": "^3.10.1",
+    "node-uuid": "^1.4.3",
     "on-response": "^1.0.1",
+    "passport": "^0.3.0",
+    "passport-google-oauth": "^0.2.0",
+    "pdf-image": "^1.0.1",
+    "request": "^2.63.0",
+    "session-rethinkdb": "^1.0.7",
     "thinky": "^2.1.6",
+    "tmp": "0.0.27",
     "underscore.string": "^3.2.2"
   }
 }

@@ -11,7 +11,7 @@ var passportGoogleOauth = require('passport-google-oauth');
 var fs = require('fs');
 var cors = require('cors');
 var expressSession = require('express-session');
-var rethinkdbSession = require('session-rethinkdb')(expressSession);
+var RDBStore = require('express-session-rethinkdb')(expressSession);
 var Attachments = require('./attachments')
 var Promise = require('bluebird');
 
@@ -86,15 +86,22 @@ ApiService.prototype._initializeExpress = function() {
         next();
     }); */
 
+    var rDBStore = new RDBStore({
+        connectOptions: {
+            servers: [
+                {host: 'localhost', port: 28015}
+            ],
+            pool: true,
+            db: 'poverty'
+        },
+        table: 'sessions'
+    });
+
     self._app.use(expressSession({
         resave: true,
         saveUninitialized: true,
         secret: 'some retarded secret',
-        store: rethinkdbSession({
-            servers: [
-                {host: 'localhost', port: 28015}
-            ]
-        })
+        store: rDBStore
     }));
 
     self._app.use(passport.initialize());
