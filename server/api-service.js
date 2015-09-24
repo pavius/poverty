@@ -144,6 +144,10 @@ ApiService.prototype._initModels = function() {
         lastLogin: type.date()
     });
 
+    self.Session = self._db.createModel('sessions', {
+        stub: type.date()
+    });
+
     //
     // relations
     //
