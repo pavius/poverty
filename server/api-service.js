@@ -120,7 +120,7 @@ ApiService.prototype._initModels = function() {
         createdAt: type.date().default(self._db.r.now())
     });
 
-    var Quote = self._db.createModel('quotes', {
+    var PurchaseOrder = self._db.createModel('purchaseOrders', {
         delivery: type.string(),
         cost: type.number(),
         scanUrl: type.string(),
@@ -128,10 +128,10 @@ ApiService.prototype._initModels = function() {
         createdAt: type.date().default(self._db.r.now())
     });
 
-    var Invoice = self._db.createModel('invoices', {
+    var Payment = self._db.createModel('payments', {
         amount: type.number(),
         paidAt: type.date(),
-        quoteId: type.string(),
+        purchaseOrderId: type.string(),
         supplierId: type.string(),
         description: type.string(),
         createdAt: type.date().default(self._db.r.now())
@@ -157,27 +157,27 @@ ApiService.prototype._initModels = function() {
     // relations
     //
 
-    Quote.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
-    Supplier.hasMany(Quote, 'quotes', 'id', 'supplierId');
+    PurchaseOrder.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
+    Supplier.hasMany(PurchaseOrder, 'purchaseOrders', 'id', 'supplierId');
 
-    Invoice.belongsTo(Quote, 'quote', 'quoteId', 'id');
-    Invoice.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
-    Quote.hasMany(Invoice, 'invoices', 'id', 'quoteId');
+    Payment.belongsTo(PurchaseOrder, 'purchaseOrder', 'purchaseOrderId', 'id');
+    Payment.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
+    PurchaseOrder.hasMany(Payment, 'payments', 'id', 'purchaseOrderId');
 
     //
     // register the routes for the resources
     //
 
     self._registerResourceRoutes('suppliers', Supplier);
-    self._registerResourceRoutes('quotes', Quote);
-    self._registerResourceRoutes('invoices', Invoice);
+    self._registerResourceRoutes('purchaseOrders', PurchaseOrder);
+    self._registerResourceRoutes('payments', Payment);
     self._registerResourceRoutes('categories', Category);
 
     //
     // Overridden events
     //
 
-    Invoice.onBeforeCreate = function(model, request, response) {
+    Payment.onBeforeCreate = function(model, request, response) {
 
         return new Promise(function(resolve, reject) {
 
@@ -429,7 +429,7 @@ ApiService.prototype._serializeRecordsToResources = function(records, fieldsForT
 
                 } else {
 
-                    // create a field relationship (e.g. relationships: {quotes: []}) if it doesn't already exist
+                    // create a field relationship (e.g. relationships: {purchaseOrders: []}) if it doesn't already exist
                     if (!resource.relationships[joinName])
                         resource.relationships[joinName] = [];
 
