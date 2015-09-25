@@ -115,6 +115,7 @@ ApiService.prototype._initModels = function() {
     var Supplier = self._db.createModel('suppliers', {
         name: type.string(),
         email: type.string(),
+        category: type.string(),
         phoneNumbers: [type.string()],
         createdAt: type.date().default(self._db.r.now())
     });
@@ -134,6 +135,10 @@ ApiService.prototype._initModels = function() {
         supplierId: type.string(),
         description: type.string(),
         createdAt: type.date().default(self._db.r.now())
+    });
+
+    var Category = self._db.createModel('categories', {
+        name: type.string()
     });
 
     self.User = self._db.createModel('users', {
@@ -166,6 +171,7 @@ ApiService.prototype._initModels = function() {
     self._registerResourceRoutes('suppliers', Supplier);
     self._registerResourceRoutes('quotes', Quote);
     self._registerResourceRoutes('invoices', Invoice);
+    self._registerResourceRoutes('categories', Category);
 
     //
     // Overridden events

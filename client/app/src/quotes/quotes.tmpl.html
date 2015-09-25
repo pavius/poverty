@@ -1,22 +1,25 @@
 <md-content layout="row" ng-controller="QuotesController as vm">
-  <md-data-table-container>
-    <table md-data-table>
-      <thead md-order="vm.order">
-        <tr md-disable-select>
-          <th name="Supplier"></th>
-          <th name="Delivery"></th>
-          <th name="Cost"></th>
-          <th order-by="attributes.createdAt" name="Created at"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr ng-repeat="quote in vm.resourceCache.getResources('quotes') | orderBy: vm.order" ng-click="vm.onRecordClick($event, quote)">
-          <td>{{vm.resourceCache.getResourceById('suppliers', quote.relationships.supplier.data.id).attributes.name}}</td>
-          <td>{{quote.attributes.delivery}}</td>
-          <td>{{quote.attributes.cost}}</td>
-          <td>{{quote.attributes.createdAt}}</td>
-        </tr>
-      </tbody>
-    </table>
-  </md-data-table-container>
+    <md-data-table-container>
+        <table md-data-table>
+            <thead md-order="vm.order">
+            <tr md-disable-select>
+                <th name="Supplier"></th>
+                <th name="Delivery"></th>
+                <th name="Cost"></th>
+                <th order-by="attributes.createdAt" name="Created at"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr ng-repeat="quote in vm.resourceCache.getResources('quotes') | orderBy: vm.order"
+                ng-click="vm.onRecordClick($event, quote)">
+                <td>{{vm.resourceCache.getResourceById('suppliers',
+                    quote.relationships.supplier.data.id).attributes.name}}
+                </td>
+                <td>{{quote.attributes.delivery}}</td>
+                <td>{{quote.attributes.cost}}</td>
+                <td>{{quote.attributes.createdAt}}</td>
+            </tr>
+            </tbody>
+        </table>
+    </md-data-table-container>
 </md-content>

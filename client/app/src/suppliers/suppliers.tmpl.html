@@ -1,26 +1,27 @@
 <md-content layout="row" ng-controller="SuppliersController as vm">
-  <md-data-table-container>
-    <table md-data-table>
-      <thead md-order="vm.order">
-        <tr md-disable-select>
-          <th name="Name"></th>
-          <th name="Email"></th>
-          <th name="Phone number"></th>
-          <th name="Tags"></th>
-          <th numeric name="Debt" unit="NIS"></th>
-          <th order-by="attributes.createdAt" name="Created at"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr ng-repeat="supplier in vm.resourceCache.getResources('suppliers') | orderBy: vm.order" ng-click="vm.onRecordClick($event, supplier)">
-          <td>{{supplier.attributes.name}}</td>
-          <td>{{supplier.attributes.email}}</td>
-          <td>{{supplier.attributes.phoneNumber}}</td>
-          <td>{{supplier.attributes.tags}}</td>
-          <td>{{supplier.attributes.debt}}</td>
-          <td>{{supplier.attributes.createdAt}}</td>
-        </tr>
-      </tbody>
-    </table>
-  </md-data-table-container>
+    <md-data-table-container>
+        <table md-data-table>
+            <thead md-order="vm.order">
+            <tr md-disable-select>
+                <th name="Name"></th>
+                <th name="Category"></th>
+                <th name="Email"></th>
+                <th name="Phone number"></th>
+                <th numeric name="Debt" unit="NIS"></th>
+                <th order-by="attributes.createdAt" name="Created at"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr ng-repeat="supplier in vm.resourceCache.getResources('suppliers') | orderBy: vm.order"
+                ng-click="vm.onRecordClick($event, supplier)">
+                <td>{{supplier.attributes.name}}</td>
+                <td>{{supplier.attributes.category}}</td>
+                <td>{{supplier.attributes.email}}</td>
+                <td>{{supplier.attributes.phoneNumber}}</td>
+                <td>{{supplier.attributes.debt}}</td>
+                <td>{{supplier.attributes.createdAt}}</td>
+            </tr>
+            </tbody>
+        </table>
+    </md-data-table-container>
 </md-content>

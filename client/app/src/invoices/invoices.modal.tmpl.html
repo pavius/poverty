@@ -1,74 +1,83 @@
 <md-dialog aria-label="Invoice" flex="35">
-  <form>
-    <md-toolbar>
-      <div class="md-toolbar-tools">
-        <h4>Invoice</h4>
-        <span flex></span>
-      </div>
-
-      <md-progress-linear ng-if="vm.customController.attachmentInProgress" md-mode="indeterminate"></md-progress-linear>
-    </md-toolbar>
-
-    <div layout="column">
-      <md-content md-theme="docs-dark" layout-padding layout="row" flex>
-        <md-select ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier" flex="40">
-          <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">{{supplier.attributes.name}}</md-option>
-        </md-select>
-        <md-select ng-disabled="!vm.resource.relationships.supplier.data.id" ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" flex="40">
-          <md-option ng-repeat="quote in vm.relationships.quote.values | filter: {relationships: {supplier: {data: {id: vm.resource.relationships.supplier.data.id}}}}" value="{{quote.id}}">{{quote.attributes.delivery}}</md-option>
-        </md-select>
-        <md-input-container flex="20">
-          <label>Amount</label>
-          <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px">
-        </md-input-container>
-      </md-content>
-
-      <md-content layout-padding>
-        <md-input-container flex>
-          <label>Description</label>
-          <input ng-model="vm.resource.attributes.description">
-        </md-input-container>
-      </md-content>
-
-      <md-content layout-padding>
-        <div layout="row">
-          <md-whiteframe class="md-whiteframe-z1" flex>
-            <div layout="row" flex layout-align="center center" style="min-height: 50px">
-              <img
-                data-ng-src="data:image/png;base64,{{vm.customController.attachment.attributes.preview}}"
-                data-err-src="images/png/avatar.png"
-                style="max-width: 355px">
+    <form>
+        <md-toolbar>
+            <div class="md-toolbar-tools">
+                <h4>Invoice</h4>
+                <span flex></span>
             </div>
-          </md-whiteframe>
-          <md-button
-            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
-            class="md-icon-button"
-            ngf-select="vm.customController.uploadAttachment(vm.resource, $file)"
-            style="width: 30px">
-            <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label="" style="font-size: 24px"></md-icon>
-          </md-button>
-          <md-button
-            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
-            class="md-icon-button"
-            ng-click="vm.customController.scan(vm.resource)"
-            style="width: 30px">
-            <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
-          </md-button>
-        </div>
-      </md-content>
 
-      <div class="md-actions" layout="row">
-        <span flex></span>
-        <md-button ng-show="vm.mode=='update'" ng-click="vm.close('delete')" style="color: red">
-          Delete
-        </md-button>
-        <md-button ng-click="vm.close('cancel')" >
-          Cancel
-        </md-button>
-        <md-button class=md-primary ng-disabled="vm.customController.attachmentInProgress" ng-click="vm.close('ok')" style="margin-right:20px;">
-          {{vm.mode}}
-        </md-button>
-      </div>
-    </div>
-  </form>
+            <md-progress-linear ng-if="vm.customController.attachmentInProgress"
+                                md-mode="indeterminate"></md-progress-linear>
+        </md-toolbar>
+
+        <div layout="column">
+            <md-content md-theme="docs-dark" layout-padding layout="row" flex>
+                <md-select ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier" flex="40">
+                    <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
+                        {{supplier.attributes.name}}
+                    </md-option>
+                </md-select>
+                <md-select ng-disabled="!vm.resource.relationships.supplier.data.id"
+                           ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" flex="40">
+                    <md-option
+                            ng-repeat="quote in vm.relationships.quote.values | filter: {relationships: {supplier: {data: {id: vm.resource.relationships.supplier.data.id}}}}"
+                            value="{{quote.id}}">{{quote.attributes.delivery}}
+                    </md-option>
+                </md-select>
+                <md-input-container flex="20">
+                    <label>Amount</label>
+                    <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px">
+                </md-input-container>
+            </md-content>
+
+            <md-content layout-padding>
+                <md-input-container flex>
+                    <label>Description</label>
+                    <input ng-model="vm.resource.attributes.description">
+                </md-input-container>
+            </md-content>
+
+            <md-content layout-padding>
+                <div layout="row">
+                    <md-whiteframe class="md-whiteframe-z1" flex>
+                        <div layout="row" flex layout-align="center center" style="min-height: 50px">
+                            <img
+                                    data-ng-src="data:image/png;base64,{{vm.customController.attachment.attributes.preview}}"
+                                    data-err-src="images/png/avatar.png"
+                                    style="max-width: 355px">
+                        </div>
+                    </md-whiteframe>
+                    <md-button
+                            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
+                            class="md-icon-button"
+                            ngf-select="vm.customController.uploadAttachment(vm.resource, $file)"
+                            style="width: 30px">
+                        <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label=""
+                                 style="font-size: 24px"></md-icon>
+                    </md-button>
+                    <md-button
+                            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
+                            class="md-icon-button"
+                            ng-click="vm.customController.scan(vm.resource)"
+                            style="width: 30px">
+                        <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
+                    </md-button>
+                </div>
+            </md-content>
+
+            <div class="md-actions" layout="row">
+                <span flex></span>
+                <md-button ng-show="vm.mode=='update'" ng-click="vm.close('delete')" style="color: red">
+                    Delete
+                </md-button>
+                <md-button ng-click="vm.close('cancel')">
+                    Cancel
+                </md-button>
+                <md-button class=md-primary ng-disabled="vm.customController.attachmentInProgress"
+                           ng-click="vm.close('ok')" style="margin-right:20px;">
+                    {{vm.mode}}
+                </md-button>
+            </div>
+        </div>
+    </form>
 </md-dialog>
