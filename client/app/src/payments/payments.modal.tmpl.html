@@ -1,8 +1,8 @@
-<md-dialog aria-label="Invoice" flex="35">
+<md-dialog aria-label="Payment" flex="35">
     <form>
         <md-toolbar>
             <div class="md-toolbar-tools">
-                <h4>Invoice</h4>
+                <h4>Payment</h4>
                 <span flex></span>
             </div>
 
@@ -18,15 +18,16 @@
                     </md-option>
                 </md-select>
                 <md-select ng-disabled="!vm.resource.relationships.supplier.data.id"
-                           ng-model="vm.resource.relationships.quote.data.id" placeholder="Quote" flex="40">
+                           ng-model="vm.resource.relationships.purchaseOrder.data.id" placeholder="Purchase Order"
+                           flex="40">
                     <md-option
-                            ng-repeat="quote in vm.relationships.quote.values | filter: {relationships: {supplier: {data: {id: vm.resource.relationships.supplier.data.id}}}}"
-                            value="{{quote.id}}">{{quote.attributes.delivery}}
+                            ng-repeat="purchaseOrder in vm.relationships.purchaseOrder.values | filter: {relationships: {supplier: {data: {id: vm.resource.relationships.supplier.data.id}}}}"
+                            value="{{purchaseOrder.id}}">{{purchaseOrder.attributes.delivery}}
                     </md-option>
                 </md-select>
                 <md-input-container flex="20">
                     <label>Amount</label>
-                    <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px">
+                    <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px" type="number" min="0">
                 </md-input-container>
             </md-content>
 
@@ -41,25 +42,22 @@
                 <div layout="row">
                     <md-whiteframe class="md-whiteframe-z1" flex>
                         <div layout="row" flex layout-align="center center" style="min-height: 50px">
-                            <img
-                                    data-ng-src="data:image/png;base64,{{vm.customController.attachment.attributes.preview}}"
-                                    data-err-src="images/png/avatar.png"
-                                    style="max-width: 355px">
+                            <img data-ng-src="data:image/png;base64,{{vm.customController.attachment.attributes.preview}}"
+                                 data-err-src="images/png/avatar.png"
+                                 style="max-width: 355px">
                         </div>
                     </md-whiteframe>
-                    <md-button
-                            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
-                            class="md-icon-button"
-                            ngf-select="vm.customController.uploadAttachment(vm.resource, $file)"
-                            style="width: 30px">
+                    <md-button ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
+                               class="md-icon-button"
+                               ngf-select="vm.customController.uploadAttachment(vm.resource, $file)"
+                               style="width: 30px">
                         <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label=""
                                  style="font-size: 24px"></md-icon>
                     </md-button>
-                    <md-button
-                            ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
-                            class="md-icon-button"
-                            ng-click="vm.customController.scan(vm.resource)"
-                            style="width: 30px">
+                    <md-button ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
+                               class="md-icon-button"
+                               ng-click="vm.customController.scan(vm.resource)"
+                               style="width: 30px">
                         <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
                     </md-button>
                 </div>

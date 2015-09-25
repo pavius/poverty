@@ -36,6 +36,7 @@
 
             ObjectDialogService.show($event,
                 'supplier',
+                'suppliers',
                 mode,
                 supplier,
                 ResourceCacheService.getResources('suppliers'),

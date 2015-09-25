@@ -93,14 +93,14 @@
                 event: 'supplier.new'
             },
             {
-                label: 'Quote',
+                label: 'PurchaseOrder',
                 icon: 'ion-document-text',
-                event: 'quote.new'
+                event: 'purchaseOrder.new'
             },
             {
-                label: 'Invoice',
+                label: 'Payment',
                 icon: 'ion-social-usd',
-                event: 'invoice.new'
+                event: 'payment.new'
             }
         ];
 

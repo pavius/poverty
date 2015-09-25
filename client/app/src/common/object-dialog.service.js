@@ -48,7 +48,7 @@
         }
 
         return {
-            show: function ($event, model, mode, resource, resources, relationships, customController) {
+            show: function ($event, model, template, mode, resource, resources, relationships, customController) {
 
                 function cleanupResource(controller, resource) {
                     if (controller && controller.cleanupResource)
@@ -65,7 +65,8 @@
                 resource = resource || buildResourceSkeleton(relationships);
 
                 // calculate template by model
-                var template = sprintf('src/%s/%s.modal.tmpl.html', plural_model, plural_model);
+                console.log(template);
+                var template = sprintf('src/%s/%s.modal.tmpl.html', template, template);
 
                 $mdDialog.show({
                     targetEvent: $event,

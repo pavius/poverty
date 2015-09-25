@@ -104,11 +104,11 @@ Attachments.prototype.commit = function(user, stagedAttachmentId) {
         }, function(error, resource) {
 
             if (error) {
-                self._logger.warn({error: error.message}, 'Failed to write scan');
+                self._logger.warn({error: error.message}, 'Failed to write file to Google Drive');
                 return reject(error);
             }
 
-            self._logger.debug({id: resource.id}, 'Scan submitted successfully');
+            self._logger.debug({id: resource.id}, 'File created successfully on Google Drive');
 
             // destage attachment
             delete self._stagedAttachments[stagedAttachmentId];

@@ -1,4 +1,4 @@
-<md-content layout="row" ng-controller="QuotesController as vm">
+<md-content layout="row" ng-controller="PurchaseOrdersController as vm">
     <md-data-table-container>
         <table md-data-table>
             <thead md-order="vm.order">
@@ -10,14 +10,14 @@
             </tr>
             </thead>
             <tbody>
-            <tr ng-repeat="quote in vm.resourceCache.getResources('quotes') | orderBy: vm.order"
-                ng-click="vm.onRecordClick($event, quote)">
+            <tr ng-repeat="purchaseOrder in vm.resourceCache.getResources('purchaseOrders') | orderBy: vm.order"
+                ng-click="vm.onRecordClick($event, purchaseOrder)">
                 <td>{{vm.resourceCache.getResourceById('suppliers',
-                    quote.relationships.supplier.data.id).attributes.name}}
+                    purchaseOrder.relationships.supplier.data.id).attributes.name}}
                 </td>
-                <td>{{quote.attributes.delivery}}</td>
-                <td>{{quote.attributes.cost}}</td>
-                <td>{{quote.attributes.createdAt}}</td>
+                <td>{{purchaseOrder.attributes.delivery}}</td>
+                <td>{{purchaseOrder.attributes.cost}}</td>
+                <td>{{purchaseOrder.attributes.createdAt}}</td>
             </tr>
             </tbody>
         </table>

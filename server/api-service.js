@@ -62,12 +62,8 @@ ApiService.prototype._initializeExpress = function() {
     }));
 
     // parse json
-    self._app.use(bodyParser.json({limit: '10mb'}));
-
-    // parse url encoded params
-    self._app.use(bodyParser.urlencoded({
-        extended: true
-    }));
+    self._app.use(bodyParser.urlencoded({extended: true, limit: '25mb'}));
+    self._app.use(bodyParser.json({limit: '25mb'}));
 
     // log all requests and their responses
     // TODO: return this once printing large bodies is handled properly
@@ -723,8 +719,11 @@ ApiService.prototype._findUserByEmail = function(email) {
 
         self.User.filter({email: email}).run().then(function(user) {
 
-            if (!user || user.length !== 1)
-                reject(new Error('Too many results or some other weirdness'));
+            if (!user || user.length === 0)
+                return reject(new Error('Unknown user'));
+
+            if (user.length !== 1)
+                return reject(new Error('Too many results or some other weirdness'));
 
             resolve(user[0]);
 

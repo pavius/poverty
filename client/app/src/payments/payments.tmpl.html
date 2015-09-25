@@ -1,0 +1,27 @@
+<md-content layout="row" ng-controller="PaymentsController as vm">
+    <md-data-table-container>
+        <table md-data-table>
+            <thead md-order="vm.order">
+            <tr md-disable-select>
+                <th name="Supplier"></th>
+                <th name="Purchase Order"></th>
+                <th name="Description"></th>
+                <th name="Amount"></th>
+                <th name="Paid at"></th>
+                <th order-by="attributes.createdAt" name="Created at"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr ng-repeat="payment in vm.resourceCache.getResources('payments') | orderBy: vm.order"
+                ng-click="vm.onRecordClick($event, payment)">
+                <td>{{vm.getPaymentSupplier(payment).attributes.name}}</td>
+                <td>{{vm.getPaymentPurchaseOrder(payment).attributes.delivery}}</td>
+                <td>{{payment.attributes.description}}</td>
+                <td>{{payment.attributes.amount}}</td>
+                <td>{{payment.attributes.paidAt}}</td>
+                <td>{{payment.attributes.createdAt}}</td>
+            </tr>
+            </tbody>
+        </table>
+    </md-data-table-container>
+</md-content>

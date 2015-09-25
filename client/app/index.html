@@ -40,12 +40,12 @@
                     <div ng-include src="'src/suppliers/suppliers.tmpl.html'"></div>
                 </md-tab>
 
-                <md-tab label="Quotes">
-                    <div ng-include src="'src/quotes/quotes.tmpl.html'"></div>
+                <md-tab label="Purchase Orders">
+                    <div ng-include src="'src/purchase-orders/purchase-orders.tmpl.html'"></div>
                 </md-tab>
 
-                <md-tab label="Invoices">
-                    <div ng-include src="'src/invoices/invoices.tmpl.html'"></div>
+                <md-tab label="Payments">
+                    <div ng-include src="'src/payments/payments.tmpl.html'"></div>
                 </md-tab>
 
             </md-tabs>
@@ -72,18 +72,17 @@
 <script src="./src/common/categories.service.js"></script>
 <script src="./src/dashboard/dashboard.controller.js"></script>
 <script src="./src/suppliers/suppliers.controller.js"></script>
-<script src="./src/quotes/quotes.controller.js"></script>
-<script src="./src/invoices/invoices.controller.js"></script>
+<script src="./src/purchase-orders/purchase-orders.controller.js"></script>
+<script src="./src/payments/payments.controller.js"></script>
 
-<nav
-        mfb-menu position="br"
-        effect="slidein"
-        active-icon="ion-close-round"
-        resting-icon="ion-plus-round"
-        toggling-method="click"
-        menu-state="vm.menuState">
-    <button
-            ng-repeat="button in vm.menuButtons"
+<nav mfb-menu position="br"
+     effect="slidein"
+     active-icon="ion-close-round"
+     resting-icon="ion-plus-round"
+     toggling-method="click"
+     menu-state="vm.menuState">
+
+    <button ng-repeat="button in vm.menuButtons"
             mfb-button icon="{{button.icon}}"
             ng-click="vm.onMenuItemClick(button)"
             label="{{button.label}}"></button>
