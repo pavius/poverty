@@ -155,6 +155,7 @@ ApiService.prototype._initModels = function() {
 
     PurchaseOrder.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
     Supplier.hasMany(PurchaseOrder, 'purchaseOrders', 'id', 'supplierId');
+    Supplier.hasMany(Payment, 'payments', 'id', 'supplierId');
 
     Payment.belongsTo(PurchaseOrder, 'purchaseOrder', 'purchaseOrderId', 'id');
     Payment.belongsTo(Supplier, 'supplier', 'supplierId', 'id');

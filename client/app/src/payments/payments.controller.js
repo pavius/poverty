@@ -13,7 +13,6 @@
 
         // get payments with purchaseOrders but don't get attachment
         Restangular.all('payments').getList({
-            include: 'purchaseOrder',
             'fields[payment]': '-attachment'
         }).then(function (payments) {
             ResourceCacheService.setResources('payments', payments);

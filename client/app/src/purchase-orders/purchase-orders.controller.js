@@ -11,7 +11,7 @@
         vm.order = 'attributes.createdAt';
         vm.resourceCache = ResourceCacheService;
 
-        Restangular.all('purchaseOrders').getList({include: 'supplier'}).then(function (purchaseOrders) {
+        Restangular.all('purchaseOrders').getList().then(function (purchaseOrders) {
             ResourceCacheService.setResources('purchaseOrders', purchaseOrders);
         });
 

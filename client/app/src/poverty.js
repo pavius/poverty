@@ -93,7 +93,7 @@
                 event: 'supplier.new'
             },
             {
-                label: 'PurchaseOrder',
+                label: 'Purchase Order',
                 icon: 'ion-document-text',
                 event: 'purchaseOrder.new'
             },
