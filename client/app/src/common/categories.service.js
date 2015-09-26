@@ -11,7 +11,6 @@
         self.categories = [];
 
         Restangular.all('categories').getList().then(function(categories) {
-            console.log(categories);
             self.categories = categories;
         });
 

@@ -3,10 +3,10 @@
 
     angular
         .module('poverty')
-        .service('ObjectDialogService', ['$mdDialog', '$mdToast', '$log', 'Restangular', ObjectDialogService])
+        .service('ObjectDialogService', ['$mdDialog', '$mdToast', '$log', '$q', 'Restangular', ObjectDialogService])
         .controller('ObjectDialogController', ['$scope', '$mdToast', ObjectDialogController]);
 
-    function ObjectDialogService($mdDialog, $mdToast, $log, Restangular) {
+    function ObjectDialogService($mdDialog, $mdToast, $log, $q, Restangular) {
 
         function buildResourceSkeleton(relationships) {
 
@@ -47,112 +47,148 @@
             }
         }
 
+        function cleanupResource(controller, resource) {
+            if (controller && controller.cleanupResource)
+                controller.cleanupResource(resource);
+        }
+
+        function addResource(model, newResource, resourceCache, customController) {
+
+            return $q(function(resolve, reject) {
+
+                cleanupResource(customController, newResource);
+
+                Restangular.all(model).post({data: newResource}).then(function (backendResult) {
+
+                    // backend dialogResult *should* be resource with its resource.id populated
+                    resourceCache.invalidateCache(model);
+                    reportResult(true, sprintf('Successfully created %s', model));
+                    resolve();
+
+                }, function (error) {
+
+                    reportResult(false,
+                        sprintf('Failed to create %s', model),
+                        sprintf('Failed to post resource. resource: %j, error: %j', newResource, error));
+                    reject();
+                });
+            });
+        }
+
+        function updateResource(model, originalResource, updatedResource, resourceCache, customController) {
+
+            return $q(function(resolve, reject) {
+
+                cleanupResource(customController, updatedResource);
+
+                // patch on backenbd
+                Restangular.all(model).one(updatedResource.id).patch({data: updatedResource}).then(function (backendResult) {
+
+                    resourceCache.invalidateCache(model);
+                    reportResult(true, sprintf('Successfully updated %s', model));
+                    resolve();
+
+                }, function (error) {
+
+                    reportResult(false,
+                        sprintf('Failed to update %s', model),
+                        sprintf('Failed to patch resource. resource: %j, error: %j', updatedResource, error));
+                    reject();
+                });
+            });
+        }
+
+        function removeResource(model, deletedResource, resourceCache) {
+
+            return $q(function(resolve, reject) {
+
+                Restangular.all(model).one(deletedResource.id).remove().then(function (backendResult) {
+
+                    resourceCache.invalidateCache(model);
+                    reportResult(true, sprintf('Successfully deleted %s', model));
+                    resolve();
+
+                }, function (error) {
+
+                    reportResult(false,
+                        sprintf('Failed to delete %s', model),
+                        sprintf('Failed to delete resource. resource: %j, error: %j', deletedResource, error));
+                    reject();
+                });
+            });
+        };
+
         return {
-            show: function ($event, model, template, mode, resource, resources, relationships, customController) {
+            show: function ($event,
+                            model,
+                            template,
+                            mode,
+                            resource,
+                            resourceCache,
+                            relationships,
+                            customController) {
 
-                function cleanupResource(controller, resource) {
-                    if (controller && controller.cleanupResource)
-                        controller.cleanupResource(resource);
-                }
+                return $q(function(resolve, reject) {
 
-                var plural_model = pluralize(model);
-                var rest = Restangular.all(plural_model);
+                    // if the resource does not exist (like when we want to create a resource),
+                    // we need to create a skeleton for its relationships and such. angular will populate
+                    // fields which have two way bindings but will not decorate the resource with things
+                    // like relationship type, etc
+                    resource = resource || buildResourceSkeleton(relationships);
 
-                // if the resource does not exist (like when we want to create a resource),
-                // we need to create a skeleton for its relationships and such. angular will populate
-                // fields which have two way bindings but will not decorate the resource with things
-                // like relationship type, etc
-                resource = resource || buildResourceSkeleton(relationships);
+                    $mdDialog.show({
+                        targetEvent: $event,
+                        controller: ObjectDialogController,
+                        controllerAs: 'vm',
+                        templateUrl: template,
+                        locals: {
+                            mode: mode,
+                            resource: resource,
+                            relationships: relationships,
+                            customController: customController
+                        }
+                    })
+                        .then(function (dialogResult) {
 
-                // calculate template by model
-                console.log(template);
-                var template = sprintf('src/%s/%s.modal.tmpl.html', template, template);
+                            if (dialogResult.action === 'cancel')
+                                return reject();
 
-                $mdDialog.show({
-                    targetEvent: $event,
-                    controller: ObjectDialogController,
-                    controllerAs: 'vm',
-                    templateUrl: template,
-                    locals: {
-                        mode: mode,
-                        resource: resource,
-                        relationships: relationships,
-                        customController: customController
-                    }
-                })
-                    .then(function (dialogResult) {
-
-                        if (dialogResult.action !== 'cancel') {
-
-                            // added?
                             if (mode === 'add') {
 
-                                cleanupResource(dialogResult.customController, dialogResult.resource);
+                                addResource(model,
+                                    dialogResult.resource,
+                                    resourceCache,
+                                    dialogResult.customController,
+                                    relationships).then(resolve, reject)
 
-                                rest.post({data: dialogResult.resource}).then(function (backendResult) {
-
-                                    // backend dialogResult *should* be resource with its resource.id populated
-                                    resources.push(backendResult);
-                                    reportResult(true, sprintf('Successfully created %s', model));
-
-                                }, function (error) {
-
-                                    reportResult(false,
-                                        sprintf('Failed to create %s', model),
-                                        sprintf('Failed to post resource. resource: %j, error: %j', dialogResult.resource, error));
-                                });
-
-                                // updated (delete or update)
                             } else if (mode === 'update') {
 
                                 // if updated
                                 if (dialogResult.action === 'ok') {
 
-                                    cleanupResource(dialogResult.customController, dialogResult.resource);
-
-                                    // patch on backenbd
-                                    rest.one(dialogResult.resource.id).patch({data: dialogResult.resource}).then(function (backendResult) {
-
-                                        // copy all updated members to the resource
-                                        for (var p in dialogResult.resource)
-                                            resource[p] = dialogResult.resource[p];
-
-                                        reportResult(true, sprintf('Successfully updated %s', model));
-
-                                    }, function (error) {
-
-                                        reportResult(false,
-                                            sprintf('Failed to update %s', model),
-                                            sprintf('Failed to patch resource. resource: %j, error: %j', dialogResult.resource, error));
-                                    });
+                                    updateResource(model,
+                                        resource,
+                                        dialogResult.resource,
+                                        resourceCache,
+                                        dialogResult.customController).then(resolve, reject)
 
                                     // if deleted
                                 } else if (dialogResult.action === 'delete') {
 
-                                    // delete from backend
-                                    rest.one(dialogResult.resource.id).remove().then(function (backendResult) {
-
-                                        // remove from instances
-                                        for (var idx = 0; idx < resources.length; ++idx)
-                                            if (resources[idx].id == dialogResult.resource.id)
-                                                resources.splice(idx, 1);
-
-                                        reportResult(true, sprintf('Successfully deleted %s', model));
-
-                                    }, function (error) {
-
-                                        reportResult(false,
-                                            sprintf('Failed to delete %s', model),
-                                            sprintf('Failed to delete resource. resource: %j, error: %j', dialogResult.resource, error));
-                                    });
+                                    removeResource(model,
+                                        dialogResult.resource,
+                                        resourceCache).then(resolve, reject)
                                 }
                             }
-                        }
-                    }, function (error) {
-                        reportResult(false,
-                            sprintf('Failed to load modal'),
-                            sprintf('Failed to load modal. error: %j', error));
-                    });
+
+                        }, function (error) {
+                            reportResult(false,
+                                sprintf('Failed to load modal'),
+                                sprintf('Failed to load modal. error: %j', error));
+
+                            return reject(error);
+                        });
+                });
             }
         }
     };

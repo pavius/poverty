@@ -12,23 +12,45 @@
 
         <div layout="column">
             <md-content md-theme="docs-dark" layout-padding layout="row" flex>
-                <md-select ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier" flex="40">
-                    <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
-                        {{supplier.attributes.name}}
-                    </md-option>
-                </md-select>
-                <md-select ng-disabled="!vm.resource.relationships.supplier.data.id"
-                           ng-model="vm.resource.relationships.purchaseOrder.data.id" placeholder="Purchase Order"
-                           flex="40">
-                    <md-option
-                            ng-repeat="purchaseOrder in vm.relationships.purchaseOrder.values | filter: {relationships: {supplier: {data: {id: vm.resource.relationships.supplier.data.id}}}}"
-                            value="{{purchaseOrder.id}}">{{purchaseOrder.attributes.delivery}}
-                    </md-option>
-                </md-select>
-                <md-input-container flex="20">
-                    <label>Amount</label>
-                    <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px" type="number" min="0">
-                </md-input-container>
+
+                <div flex="40">
+                    <md-select ng-show="!vm.customController.hasPo" ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier">
+                        <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
+                            {{supplier.attributes.name}}
+                        </md-option>
+                    </md-select>
+
+                    <md-select ng-show="vm.customController.hasPo" ng-model="vm.customController.poSupplierId" placeholder="Supplier">
+                        <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
+                            {{supplier.attributes.name}}
+                        </md-option>
+                    </md-select>
+                </div>
+
+                <div flex="40">
+                    <md-select ng-show="vm.customController.hasPo"
+                               ng-disabled="!vm.customController.poSupplierId"
+                               ng-model="vm.resource.relationships.purchaseOrder.data.id" placeholder="PO">
+                        <md-option
+                                ng-repeat="purchaseOrder in vm.relationships.purchaseOrder.values | filter: {relationships: {supplier: {data: {id: vm.customController.poSupplierId}}}}"
+                                value="{{purchaseOrder.id}}">{{purchaseOrder.attributes.delivery}}
+                        </md-option>
+                    </md-select>
+                </div>
+
+                <div flex="20">
+                    <md-input-container>
+                        <label>Amount</label>
+                        <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px" type="number" min="0">
+                    </md-input-container>
+                </div>
+
+            </md-content>
+
+            <md-content md-theme="docs-dark" layout-padding layout="row" flex>
+                <md-checkbox ng-model="vm.customController.hasPo" aria-label="Has PO">
+                    Has PO
+                </md-checkbox>
             </md-content>
 
             <md-content layout-padding>

@@ -34,26 +34,36 @@
                             extractedData.meta = data.meta;
                             extractedData.included = data.included;
 
-                            function _apply(elem, fct) {
+                            // call fn on any leaf of the object with a "type"
+                            function _callOnTypedElements(elem, fn) {
                                 if (elem !== undefined) {
+
+                                    // if the element has a "type" member, apply the function
                                     if (elem.type !== undefined) {
-                                        fct(elem);
+                                        fn(elem);
+
+                                    // otherwise, iterate over the elements members recursively and look to apply
+                                    // the function on its members
                                     } else {
-                                        _.forEach(elem, function (el) {
-                                            _apply(el, fct);
+                                        _.forOwn(elem, function(el) {
+                                            _callOnTypedElements(el, fn);
                                         });
                                     }
                                 }
                             }
 
-                            _apply(data.data, function (elem) {
-                                _apply(elem.relationships, function (rel) {
-                                    rel.getIncluded = function () {
-                                        return _.find(extractedData.included, function (included) {
-                                            return (included.type == rel.type) && (included.id == rel.id);
-                                        });
-                                    };
-                                });
+                            function _attachInclusionFunction(elem) {
+                                elem.getIncluded = function () {
+                                    return _.find(extractedData.included, function (included) {
+                                        return (included.type == elem.type) && (included.id == elem.id);
+                                    });
+                                };
+                            }
+
+                            // for all elements with a "type" field in data, attach a function on its relationships
+                            // to get the actual data
+                            _callOnTypedElements(data.data, function (elem) {
+                                _callOnTypedElements(elem.relationships, _attachInclusionFunction);
                             });
 
                             return extractedData;
@@ -93,7 +103,7 @@
                 event: 'supplier.new'
             },
             {
-                label: 'PurchaseOrder',
+                label: 'Purchase Order',
                 icon: 'ion-document-text',
                 event: 'purchaseOrder.new'
             },

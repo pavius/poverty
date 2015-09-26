@@ -155,6 +155,7 @@ ApiService.prototype._initModels = function() {
 
     PurchaseOrder.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
     Supplier.hasMany(PurchaseOrder, 'purchaseOrders', 'id', 'supplierId');
+    Supplier.hasMany(Payment, 'payments', 'id', 'supplierId');
 
     Payment.belongsTo(PurchaseOrder, 'purchaseOrder', 'purchaseOrderId', 'id');
     Payment.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
@@ -211,6 +212,88 @@ ApiService.prototype._initModels = function() {
             }
         });
     };
+
+    Supplier.onAfterGetList = function(model, request, response, matchingRecords) {
+
+        return new Promise(function(resolve, reject) {
+
+            var r = self._db.r;
+
+            var poCostPerSupplierQuery = r.table('purchaseOrders')
+                .group('supplierId').sum('cost').run();
+
+            var paymentWithoutPoAmountPerSupplierQuery = r.table('payments')
+                .filter(function(payment) {
+                    return payment.hasFields('supplierId');
+                }).group('supplierId').sum('amount').run();
+
+            var paymentWithPoAmountPerSupplierQuery = r.table('payments')
+                .eqJoin('purchaseOrderId', r.table('purchaseOrders')).zip()
+                .group('supplierId').sum('amount').run();
+
+            Promise.join(
+                poCostPerSupplierQuery,
+                paymentWithoutPoAmountPerSupplierQuery,
+                paymentWithPoAmountPerSupplierQuery,
+                function(poCostPerSupplier,
+                         paymentWithoutPoAmountPerSupplier,
+                         paymentWithPoAmountPerSupplier) {
+
+                    // iterate over the suppliers we found
+                    _.forEach(matchingRecords, function(matchingRecord) {
+
+                        var id = matchingRecord.id;
+
+                        // get values for this specific supplier
+                        var poCost = self._extractValueFromQuery(id, poCostPerSupplier);
+                        var paymentWithoutPoAmount = self._extractValueFromQuery(id, paymentWithoutPoAmountPerSupplier);
+                        var paymentWithPoAmount = self._extractValueFromQuery(id, paymentWithPoAmountPerSupplier);
+
+                        // the total amount paid is what we paid with a PO and without a PO
+                        matchingRecord.totalPaid = paymentWithoutPoAmount + paymentWithPoAmount;
+
+                        // the debt is the total po cost minus what we paid with a PO (cannot be negative)
+                        matchingRecord.totalDebt = Math.max(poCost - paymentWithPoAmount, 0);
+                    });
+
+                    resolve(matchingRecords);
+            });
+        });
+    };
+
+    PurchaseOrder.onAfterGetList = function(model, request, response, matchingRecords) {
+
+        return new Promise(function(resolve, reject) {
+
+            var r = self._db.r;
+
+            var paymentAmountPerPoQuery = r.table('payments').filter(function(payment) {
+                return payment.hasFields('purchaseOrderId');
+            }).group('purchaseOrderId').sum('amount').run();
+
+            Promise.join(
+                paymentAmountPerPoQuery,
+                function(paymentAmountPerPo) {
+
+                    // iterate over the suppliers we found
+                    _.forEach(matchingRecords, function(matchingRecord) {
+
+                        var id = matchingRecord.id;
+
+                        // get values for this specific supplier
+                        var paymentAmount = self._extractValueFromQuery(id, paymentAmountPerPo);
+
+                        // the total amount paid is the total payments for this po
+                        matchingRecord.totalPaid = paymentAmount;
+
+                        // the total amount paid is the total payments for this po
+                        matchingRecord.totalDebt = Math.max(matchingRecord.cost - paymentAmount, 0);
+                    });
+
+                    resolve(matchingRecords);
+                });
+        });
+    };
 };
 
 ApiService.prototype._initRoutes = function() {
@@ -263,6 +346,20 @@ ApiService.prototype._initRoutes = function() {
     {
         response.sendStatus(403);
     });
+};
+
+ApiService.prototype._extractValueFromQuery = function(id, query) {
+
+    var value = 0;
+
+    _.forEach(query, function(result) {
+
+        if (result.group === id) {
+            value = result.reduction;
+        }
+    });
+
+    return value;
 };
 
 ApiService.prototype._getModelJoins = function(model) {
@@ -527,7 +624,10 @@ ApiService.prototype._handleGetList = function(model, req, res, next) {
 
     model.getJoin(query.join).run().then(function(matchingRecords) {
 
-        res.json(self._serialize(matchingRecords, model, query));
+        model.onAfterGetList(model, req, res, matchingRecords).then(function(matchingRecords) {
+
+            res.json(self._serialize(matchingRecords, model, query));
+        });
 
     }).error(self._handleError(res));
 };
@@ -623,8 +723,15 @@ ApiService.prototype._registerResourceEvents = function(model) {
         return new Promise(function(resolve, reject) {
             resolve(request.body);
         });
-    }
-}
+    };
+
+    model.onAfterGetList = function(model, request, response, matchingRecords) {
+
+        return new Promise(function(resolve, reject) {
+            resolve(matchingRecords);
+        });
+    };
+};
 
 ApiService.prototype._registerResourceRoutes = function(name, model) {
 

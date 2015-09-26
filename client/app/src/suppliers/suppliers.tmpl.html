@@ -7,6 +7,7 @@
                 <th name="Category"></th>
                 <th name="Email"></th>
                 <th name="Phone number"></th>
+                <th numeric name="Total paid" unit="NIS"></th>
                 <th numeric name="Debt" unit="NIS"></th>
                 <th order-by="attributes.createdAt" name="Created at"></th>
             </tr>
@@ -18,7 +19,8 @@
                 <td>{{supplier.attributes.category}}</td>
                 <td>{{supplier.attributes.email}}</td>
                 <td>{{supplier.attributes.phoneNumber}}</td>
-                <td>{{supplier.attributes.debt}}</td>
+                <td>{{supplier.attributes.totalPaid}}</td>
+                <td>{{supplier.attributes.totalDebt}}</td>
                 <td>{{supplier.attributes.createdAt}}</td>
             </tr>
             </tbody>

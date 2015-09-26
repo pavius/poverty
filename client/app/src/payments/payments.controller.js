@@ -11,16 +11,19 @@
         vm.order = 'attributes.createdAt';
         vm.resourceCache = ResourceCacheService;
 
-        // get payments with purchaseOrders but don't get attachment
-        Restangular.all('payments').getList({
-            include: 'purchaseOrder',
-            'fields[payment]': '-attachment'
-        }).then(function (payments) {
-            ResourceCacheService.setResources('payments', payments);
-        });
+        function loadResources() {
+            vm.resourceCache.loadResources('payments', {
+                'include': 'supplier,purchaseOrder',
+                'fields[payment]': '-attachment'
+            });
+        }
 
         $scope.$on('payment.new', function () {
             vm.showDialog('add');
+        });
+
+        $scope.$on('payment.show', function() {
+            loadResources();
         });
 
         vm.onRecordClick = function ($event, payment) {
@@ -35,27 +38,26 @@
 
             // if there's a supplier, prefer that
             if (supplierId) {
-                return vm.resourceCache.getResourceById('suppliers', supplierId);
+                return payment.relationships.supplier.data.getIncluded();
             }
-            else {
 
-                // get our purchaseOrder directly and then pull the supplier from that
-                purchaseOrder = vm.getPaymentPurchaseOrder(payment);
+            // get our purchaseOrder directly and then pull the supplier from that
+            var purchaseOrder = vm.getPaymentPurchaseOrder(payment);
 
-                if (purchaseOrder) {
-                    return vm.resourceCache.getResourceById('suppliers', purchaseOrder.relationships.supplier.data.id);
-                }
+            if (purchaseOrder) {
+                var sup =  purchaseOrder.relationships.supplier.data.getIncluded();
+                return sup;
             }
-        }
+        };
 
         vm.getPaymentPurchaseOrder = function (payment) {
 
             purchaseOrderId = _.get(payment, 'relationships.purchaseOrder.data.id');
 
             if (purchaseOrderId) {
-                return vm.resourceCache.getResourceById('purchaseOrders', purchaseOrderId);
+                return payment.relationships.purchaseOrder.data.getIncluded();
             }
-        }
+        };
 
         vm.showDialog = function (mode, $event, payment) {
 
@@ -66,8 +68,15 @@
             function CustomController() {
 
                 var vm = this;
+                vm.hasPo = false;
+                vm.poSupplierId = null;
                 vm.attachmentInProgress = false;
                 vm.attachment = {attributes: _.get(payment, 'attributes.attachment')};
+
+                if (payment && _.get(payment, 'relationships.purchaseOrder.data.id')) {
+                    vm.hasPo = true;
+                    vm.poSupplierId = self.parent.getPaymentSupplier(payment).id;
+                }
 
                 function arrayBufferToBase64(buffer) {
                     var bytes = new Uint8Array(buffer);
@@ -180,18 +189,6 @@
                 vm.allowModifyAttachment = function (resource) {
                     return _.get(resource, 'relationships.supplier.data.id') && _.get(resource, 'attributes.amount');
                 }
-            }
-
-            var relationships = {
-                supplier: {
-                    type: 'supplier',
-                    values: ResourceCacheService.getResources('suppliers')
-
-                },
-                purchaseOrder: {
-                    type: 'purchaseOrder',
-                    values: ResourceCacheService.getResources('purchaseOrders')
-                }
             };
 
             $q(function (resolve, reject) {
@@ -213,26 +210,33 @@
 
             }).finally(function () {
 
-                // if the payment has a purchaseOrder, we need to load the supplier id so that it will be displayed
-                // properly. this is because if a purchaseOrder is selected, the resource does not contain the supllier
-                // id (which is taken from the purchaseOrder)
-                if (payment && _.get(payment, 'relationships.purchaseOrder.data.id')) {
-                    payment.relationships.supplier = {
-                        data: {
-                            id: vm.parent.getPaymentSupplier(payment).id,
-                            type: 'supplier'
+                // get relationships
+                $q.all([
+                    Restangular.all('suppliers').getList({'fields[supplier]': 'name'}),
+                    Restangular.all('purchaseOrders').getList({'fields[purchaseOrder]': 'delivery'})
+
+                ]).then(function(values) {
+                    var relationships = {
+                        supplier: {
+                            type: 'supplier',
+                            values: values[0]
+
+                        },
+                        purchaseOrder: {
+                            type: 'purchaseOrder',
+                            values: values[1]
                         }
                     };
-                }
 
-                ObjectDialogService.show($event,
-                    'payment',
-                    'payments',
-                    mode,
-                    payment,
-                    ResourceCacheService.getResources('payments'),
-                    relationships,
-                    CustomController);
+                    ObjectDialogService.show($event,
+                        'payments',
+                        './src/payments/payments.modal.tmpl.html',
+                        mode,
+                        payment,
+                        ResourceCacheService,
+                        relationships,
+                        CustomController).then(loadResources);
+                });
             });
         }
     }
