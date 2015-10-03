@@ -13,7 +13,7 @@
 
         function loadResources() {
             vm.resourceCache.loadResources('payments', {
-                'include': 'supplier,purchaseOrder',
+                'include': 'supplier,purchaseOrder.supplier',
                 'fields[payment]': '-attachment'
             });
         }
@@ -176,15 +176,15 @@
                     createAttachment(paymentResource, attachmentResource);
                 };
 
-                vm.cleanupResource = function (resource) {
+                /* vm.cleanupResource = function (resource) {
 
                     // if purchaseOrder is set, supplier must not be set. the supplier must be taken from
                     // the purchaseOrder relationship
                     if (_.get(resource, 'relationships.purchaseOrder.data.id') &&
                         resource.relationships.supplier) {
-                        delete resource.relationships.supplier;
+                        resource.relationships.supplier = null;
                     }
-                };
+                }; */
 
                 vm.allowModifyAttachment = function (resource) {
                     return _.get(resource, 'relationships.supplier.data.id') && _.get(resource, 'attributes.amount');

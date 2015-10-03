@@ -9,7 +9,7 @@ module.exports = {
         url: "http://localhost:3100"
     },
     poverty: {
-        authBypass: false,
+        authBypass: true,
         rootUrl: "http://poverty.localtunnel.me",
         port: 3000
     }

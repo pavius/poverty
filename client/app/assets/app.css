@@ -1,3 +1,9 @@
+/* background color for multi function button */
 .mfb-component__button--main, .mfb-component__button--child {
     background-color: rgb(121, 107, 103);
+}
+
+/* weirdness in md-select, needs padding */
+md-select {
+    padding-right: 5px;
 }

@@ -607,7 +607,7 @@ ApiService.prototype._parseQuery = function(query) {
 
     // iterate through filter, split fields
     _.forOwn(query.fields, function(value, type) {
-        parsedQuery.fields[type] = value.split(',')
+        parsedQuery.fields[type] = value.split(',');
     });
 
     return parsedQuery;

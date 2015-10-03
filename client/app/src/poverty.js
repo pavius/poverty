@@ -119,5 +119,9 @@
 
             $scope.$broadcast(button.event);
         };
+
+        /* $timeout(function() {
+            $scope.$broadcast('payment.new');
+        }, 1000); */
     }
 })();

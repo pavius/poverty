@@ -11,57 +11,62 @@
         </md-toolbar>
 
         <div layout="column">
-            <md-content md-theme="docs-dark" layout-padding layout="row" flex>
 
-                <div flex="40">
-                    <md-select ng-show="!vm.customController.hasPo" ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier">
+            <md-content md-theme="docs-dark" layout-padding layout="column">
+
+                <div ng-show="!vm.customController.hasPo" layout="row">
+                    <md-select ng-model="vm.resource.relationships.supplier.data.id" placeholder="Supplier" flex>
                         <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
                             {{supplier.attributes.name}}
                         </md-option>
                     </md-select>
 
-                    <md-select ng-show="vm.customController.hasPo" ng-model="vm.customController.poSupplierId" placeholder="Supplier">
-                        <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
-                            {{supplier.attributes.name}}
-                        </md-option>
-                    </md-select>
-                </div>
-
-                <div flex="40">
-                    <md-select ng-show="vm.customController.hasPo"
-                               ng-disabled="!vm.customController.poSupplierId"
-                               ng-model="vm.resource.relationships.purchaseOrder.data.id" placeholder="PO">
-                        <md-option
-                                ng-repeat="purchaseOrder in vm.relationships.purchaseOrder.values | filter: {relationships: {supplier: {data: {id: vm.customController.poSupplierId}}}}"
-                                value="{{purchaseOrder.id}}">{{purchaseOrder.attributes.delivery}}
-                        </md-option>
-                    </md-select>
-                </div>
-
-                <div flex="20">
-                    <md-input-container>
+                    <md-input-container flex="20">
                         <label>Amount</label>
                         <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px" type="number" min="0">
                     </md-input-container>
                 </div>
 
+                <div ng-show="vm.customController.hasPo" layout="row">
+
+                    <md-select ng-model="vm.customController.poSupplierId" placeholder="Supplier" flex="40">
+                        <md-option ng-repeat="supplier in vm.relationships.supplier.values" value="{{supplier.id}}">
+                            {{supplier.attributes.name}}
+                        </md-option>
+                    </md-select>
+
+                    <md-select ng-disabled="!vm.customController.poSupplierId"
+                               ng-model="vm.resource.relationships.purchaseOrder.data.id"
+                               placeholder="PO"
+                               flex="40">
+                        <md-option
+                                ng-repeat="purchaseOrder in vm.relationships.purchaseOrder.values | filter: {relationships: {supplier: {data: {id: vm.customController.poSupplierId}}}}"
+                                value="{{purchaseOrder.id}}">{{purchaseOrder.attributes.delivery}}
+                        </md-option>
+                    </md-select>
+
+                    <md-input-container flex="20">
+                        <label>Amount</label>
+                        <input ng-model="vm.resource.attributes.amount" style="margin-top: 5px" type="number" min="0">
+                    </md-input-container>
+                </div>
+
+                <div layout="row">
+                    <md-checkbox ng-model="vm.customController.hasPo" aria-label="Has PO">
+                        Has Purchase Order
+                    </md-checkbox>
+                </div>
+
             </md-content>
 
-            <md-content md-theme="docs-dark" layout-padding layout="row" flex>
-                <md-checkbox ng-model="vm.customController.hasPo" aria-label="Has PO">
-                    Has PO
-                </md-checkbox>
-            </md-content>
+            <md-content layout-padding layout="column">
 
-            <md-content layout-padding>
                 <md-input-container flex>
                     <label>Description</label>
                     <input ng-model="vm.resource.attributes.description">
                 </md-input-container>
-            </md-content>
 
-            <md-content layout-padding>
-                <div layout="row">
+                <div layout="row" flex>
                     <md-whiteframe class="md-whiteframe-z1" flex>
                         <div layout="row" flex layout-align="center center" style="min-height: 50px">
                             <img data-ng-src="data:image/png;base64,{{vm.customController.attachment.attributes.preview}}"
@@ -83,21 +88,22 @@
                         <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
                     </md-button>
                 </div>
-            </md-content>
 
-            <div class="md-actions" layout="row">
-                <span flex></span>
-                <md-button ng-show="vm.mode=='update'" ng-click="vm.close('delete')" style="color: red">
-                    Delete
-                </md-button>
-                <md-button ng-click="vm.close('cancel')">
-                    Cancel
-                </md-button>
-                <md-button class=md-primary ng-disabled="vm.customController.attachmentInProgress"
-                           ng-click="vm.close('ok')" style="margin-right:20px;">
-                    {{vm.mode}}
-                </md-button>
-            </div>
+                <div class="md-actions" layout="row" flex>
+                    <span flex></span>
+                    <md-button ng-show="vm.mode=='update'" ng-click="vm.close('delete')" style="color: red">
+                        Delete
+                    </md-button>
+                    <md-button ng-click="vm.close('cancel')">
+                        Cancel
+                    </md-button>
+                    <md-button class=md-primary ng-disabled="vm.customController.attachmentInProgress"
+                               ng-click="vm.close('ok')" style="margin-right:20px;">
+                        {{vm.mode}}
+                    </md-button>
+                </div>
+
+            </md-content>
         </div>
     </form>
 </md-dialog>
