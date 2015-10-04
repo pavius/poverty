@@ -44,7 +44,7 @@ function initialize(daemon) {
         authInfo);
 }
 
-var daemon = {}
+var daemon = {};
 
 // initialize daemon
 initialize(daemon);

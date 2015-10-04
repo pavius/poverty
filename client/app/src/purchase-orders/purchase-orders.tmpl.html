@@ -2,23 +2,25 @@
     <md-data-table-container>
         <table md-data-table>
             <thead md-order="vm.order">
-            <tr md-disable-select>
-                <th name="Supplier"></th>
-                <th name="Delivery"></th>
-                <th name="Cost"></th>
-                <th order-by="attributes.createdAt" name="Created at"></th>
-            </tr>
+                <tr md-disable-select>
+                    <th name="Supplier"></th>
+                    <th name="Delivery"></th>
+                    <th name="Cost"></th>
+                    <th numeric name="Total paid" unit="NIS"></th>
+                    <th numeric name="Debt" unit="NIS"></th>
+                    <th order-by="attributes.createdAt" name="Created at"></th>
+                </tr>
             </thead>
             <tbody>
-            <tr ng-repeat="purchaseOrder in vm.resourceCache.getResources('purchaseOrders') | orderBy: vm.order"
-                ng-click="vm.onRecordClick($event, purchaseOrder)">
-                <td>{{vm.resourceCache.getResourceById('suppliers',
-                    purchaseOrder.relationships.supplier.data.id).attributes.name}}
-                </td>
-                <td>{{purchaseOrder.attributes.delivery}}</td>
-                <td>{{purchaseOrder.attributes.cost}}</td>
-                <td>{{purchaseOrder.attributes.createdAt}}</td>
-            </tr>
+                <tr ng-repeat="purchaseOrder in vm.resourceCache.getResources('purchaseOrders') | orderBy: vm.order"
+                    ng-click="vm.onRecordClick($event, purchaseOrder)">
+                    <td>{{purchaseOrder.relationships.supplier.data.getIncluded().attributes.name}}</td>
+                    <td>{{purchaseOrder.attributes.delivery}}</td>
+                    <td>{{purchaseOrder.attributes.cost}}</td>
+                    <td>{{purchaseOrder.attributes.totalPaid}}</td>
+                    <td>{{purchaseOrder.attributes.totalDebt}}</td>
+                    <td>{{purchaseOrder.attributes.createdAt}}</td>
+                </tr>
             </tbody>
         </table>
     </md-data-table-container>

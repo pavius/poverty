@@ -13,17 +13,21 @@
         vm.order = 'attributes.createdAt';
         vm.resourceCache = ResourceCacheService;
 
-        Restangular.all('suppliers').getList().then(function (suppliers) {
-            ResourceCacheService.setResources('suppliers', suppliers);
-        });
+        function loadResources() {
+            vm.resourceCache.loadResources('suppliers');
+        }
 
         $scope.$on('supplier.new', function () {
             vm.showDialog('add');
         });
 
+        $scope.$on('supplier.show', function() {
+            loadResources();
+        });
+
         vm.onRecordClick = function ($event, supplier) {
             vm.showDialog('update', $event, supplier);
-        }
+        };
 
         vm.showDialog = function (mode, $event, supplier) {
 
@@ -35,12 +39,12 @@
             };
 
             ObjectDialogService.show($event,
-                'supplier',
                 'suppliers',
+                './src/suppliers/suppliers.modal.tmpl.html',
                 mode,
                 supplier,
-                ResourceCacheService.getResources('suppliers'),
-                relationships);
-        }
+                ResourceCacheService,
+                relationships).then(loadResources)
+        };
     }
 })();

@@ -36,15 +36,15 @@
 
             <md-tabs md-dynamic-height md-border-bottom>
 
-                <md-tab label="Suppliers">
+                <md-tab label="Suppliers" md-on-select="$broadcast('supplier.show')">
                     <div ng-include src="'src/suppliers/suppliers.tmpl.html'"></div>
                 </md-tab>
 
-                <md-tab label="Purchase Orders">
+                <md-tab label="Purchase Orders" md-on-select="$broadcast('purchaseOrder.show')">
                     <div ng-include src="'src/purchase-orders/purchase-orders.tmpl.html'"></div>
                 </md-tab>
 
-                <md-tab label="Payments">
+                <md-tab label="Payments" md-on-select="$broadcast('payment.show')">
                     <div ng-include src="'src/payments/payments.tmpl.html'"></div>
                 </md-tab>
 
