@@ -218,6 +218,46 @@ ApiService.prototype._initModels = function() {
         });
     };
 
+    Category.onAfterGetList = function(model, request, response, matchingRecords) {
+
+        return new Promise(function(resolve, reject) {
+
+            var r = self._db.r;
+
+            var paymentWithoutPoAmountPerCategoryQuery = r.table('payments')
+                .eqJoin('supplierId', r.table('suppliers')).zip().group('categoryId').sum('amount').run();
+
+            var paymentWithPoAmountPerCategoryQuery = r.table('payments')
+                .eqJoin('purchaseOrderId', r.table('purchaseOrders')).zip()
+                .eqJoin('supplierId', r.table('suppliers')).zip().group('categoryId').sum('amount').run();
+
+            Promise.join(
+                paymentWithoutPoAmountPerCategoryQuery,
+                paymentWithPoAmountPerCategoryQuery,
+                function(paymentWithoutPoAmountPerCategory,
+                         paymentWithPoAmountPerCategory) {
+
+                    // iterate over the suppliers we found
+                    _.forEach(matchingRecords, function(matchingRecord) {
+
+                        var id = matchingRecord.id;
+
+                        // get values for this specific supplier
+                        var paymentWithoutPoAmount = self._extractValueFromQuery(id, paymentWithoutPoAmountPerCategory);
+                        var paymentWithPoAmount = self._extractValueFromQuery(id, paymentWithPoAmountPerCategory);
+
+                        // the total amount paid is what we paid with a PO and without a PO
+                        matchingRecord.totalPaid = paymentWithoutPoAmount + paymentWithPoAmount;
+
+                        // the total left is budget minus total paid
+                        matchingRecord.balance = matchingRecord.budget - matchingRecord.totalPaid;
+                    });
+
+                    resolve(matchingRecords);
+                });
+        });
+    };
+
     Supplier.onAfterGetList = function(model, request, response, matchingRecords) {
 
         return new Promise(function(resolve, reject) {

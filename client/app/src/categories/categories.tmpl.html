@@ -6,7 +6,7 @@
                 <th name="Name"></th>
                 <th name="Budget" unit="NIS"></th>
                 <th name="Spent" unit="NIS"></th>
-                <th name="Left" unit="NIS"></th>
+                <th name="Balance" unit="NIS"></th>
             </tr>
             </thead>
             <tbody>
@@ -14,8 +14,8 @@
                 ng-click="vm.onRecordClick($event, category)">
                 <td>{{category.attributes.name}}</td>
                 <td>{{category.attributes.budget}}</td>
-                <td>{{category.attributes.spent}}</td>
-                <td>{{category.attributes.left}}</td>
+                <td>{{category.attributes.totalPaid}}</td>
+                <td>{{category.attributes.balance}}</td>
             </tr>
             </tbody>
         </table>
