@@ -66,6 +66,7 @@
     "passport": "^0.3.0",
     "passport-google-oauth": "^0.2.0",
     "pdf-image": "^1.0.1",
+    "pluralize": "^1.2.1",
     "request": "^2.63.0",
     "session-rethinkdb": "^1.0.7",
     "thinky": "^2.1.6",

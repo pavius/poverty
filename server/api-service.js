@@ -14,6 +14,7 @@ var expressSession = require('express-session');
 var RDBStore = require('express-session-rethinkdb')(expressSession);
 var Attachments = require('./attachments')
 var Promise = require('bluebird');
+var pluralize = require('pluralize');
 
 
 function ApiService(logger, db, rootUrl, scant_address, authInfo) {
@@ -513,7 +514,7 @@ ApiService.prototype._getResourceTypeByTableName = function(tableName) {
 
     var self = this;
 
-    return tableName.substring(0, tableName.length - 1);
+    return pluralize(tableName, 1);
 };
 
 ApiService.prototype._serializeRecordsToResources = function(records, fieldsForTypes) {
