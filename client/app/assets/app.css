@@ -7,3 +7,7 @@
 md-select {
     padding-right: 5px;
 }
+
+md-select-menu.md-docs-dark-theme md-option:focus:not([selected]) {
+    background: rgba(142, 192, 236, 0.5);
+}

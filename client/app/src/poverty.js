@@ -155,7 +155,7 @@
         };
 
         /* $timeout(function() {
-            $scope.$broadcast('payment.new');
+            $scope.$broadcast('purchaseOrder.new');
         }, 1000); */
     }
 })();
