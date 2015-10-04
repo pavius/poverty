@@ -76,14 +76,14 @@
                     </md-whiteframe>
                     <md-button ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
                                class="md-icon-button"
-                               ngf-select="vm.customController.uploadAttachment(vm.resource, $file)"
+                               ngf-select="vm.customController.uploadAttachment(vm.resource, $file, vm.relationships)"
                                style="width: 30px">
                         <md-icon md-font-icon="ion-ios-cloud-upload-outline" aria-label=""
                                  style="font-size: 24px"></md-icon>
                     </md-button>
                     <md-button ng-disabled="!vm.customController.allowModifyAttachment(vm.resource)"
                                class="md-icon-button"
-                               ng-click="vm.customController.scan(vm.resource)"
+                               ng-click="vm.customController.scan(vm.resource, vm.relationships)"
                                style="width: 30px">
                         <md-icon md-font-icon="ion-ios-printer-outline" aria-label="" style="font-size: 24px"></md-icon>
                     </md-button>

@@ -130,6 +130,17 @@
 
                 return $q(function(resolve, reject) {
 
+                    // attach a "get by id" function for the relationships, so controllers can use it
+                    _.forOwn(relationships, function(relationship) {
+
+                        relationship.getById = function(requestedId) {
+                            for (var valueIdx = 0; valueIdx < this.values.length; ++valueIdx) {
+                                if (this.values[valueIdx].id === requestedId)
+                                    return this.values[valueIdx];
+                            }
+                        }
+                    });
+
                     // if the resource does not exist (like when we want to create a resource),
                     // we need to create a skeleton for its relationships and such. angular will populate
                     // fields which have two way bindings but will not decorate the resource with things

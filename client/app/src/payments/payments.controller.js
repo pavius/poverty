@@ -94,9 +94,6 @@
                     // indicate for ui purposes that we've started upload
                     vm.attachmentInProgress = true;
 
-                    if (attachmentResource.data.attributes.contents)
-                        console.log(attachmentResource.data.attributes.contents.length);
-
                     // create a scan attachment. when we get its ID, store it
                     Restangular.all('attachments').post(attachmentResource).then(function (attachment) {
 
@@ -112,19 +109,29 @@
                     });
                 }
 
-                function getScanName(paymentResource, extension) {
+                function getScanName(paymentResource, relationships, extension) {
 
-                    // name starts with supplier
-                    var scanName = sprintf('%s::', self.parent.getPaymentSupplier(paymentResource).attributes.name);
+                    var scanName;
 
-                    // if has a purchaseOrder
-                    var purchaseOrder = self.parent.getPaymentPurchaseOrder(paymentResource);
-                    if (purchaseOrder)
-                        scanName += sprintf('%s::', purchaseOrder.attributes.delivery);
+                    // name starts with supplier. take the proper value according to the current setting of hasPo
+                    if (vm.hasPo) {
+
+                        var supplierName = relationships.supplier.getById(vm.poSupplierId).attributes.name;
+
+                        var purchaseOrderId = paymentResource.relationships.purchaseOrder.data.id;
+                        purchaseOrderName = relationships.purchaseOrder.getById(purchaseOrderId).attributes.delivery;
+
+                        scanName = sprintf('Supplier(%s)-PO(%s)', supplierName, purchaseOrderName);
+
+                    } else {
+
+                        var supplierName = relationships.supplier.getById(paymentResource.relationships.supplier.data.id).attributes.name;
+                        scanName = sprintf('Supplier(%s)', supplierName);
+                    }
 
                     // add date, amount, extension
-                    scanName += sprintf('%d::', paymentResource.attributes.amount);
-                    scanName += Date.now();
+                    scanName += sprintf('-Amount(%s)', paymentResource.attributes.amount);
+                    scanName += sprintf('-At(%s)', Date.now());
                     scanName += '.' + extension;
 
                     // replace spaces with underscores
@@ -133,7 +140,7 @@
                     return scanName;
                 }
 
-                vm.uploadAttachment = function (paymentResource, file) {
+                vm.uploadAttachment = function (paymentResource, file, relationships) {
 
                     if (!file) return;
 
@@ -148,7 +155,7 @@
                         var attachmentResource = {
                             data: {
                                 attributes: {
-                                    title: getScanName(paymentResource, extension),
+                                    title: getScanName(paymentResource, relationships, extension),
                                     type: "media",
                                     contentType: file.type,
                                     contents: arrayBufferToBase64(reader.result)
@@ -162,12 +169,12 @@
                     reader.readAsArrayBuffer(file);
                 };
 
-                vm.scan = function (paymentResource) {
+                vm.scan = function (paymentResource, relationships) {
 
                     var attachmentResource = {
                         data: {
                             attributes: {
-                                title: getScanName(paymentResource, 'pdf'),
+                                title: getScanName(paymentResource, relationships, 'pdf'),
                                 type: "scan"
                             }
                         }
@@ -187,7 +194,10 @@
                 }; */
 
                 vm.allowModifyAttachment = function (resource) {
-                    return _.get(resource, 'relationships.supplier.data.id') && _.get(resource, 'attributes.amount');
+
+                    // if there's an amount and a supplier OR a purchase order
+                    return _.get(resource, 'attributes.amount') &&
+                        (_.get(resource, 'relationships.supplier.data.id') || _.get(resource, 'relationships.purchaseOrder.data.id'));
                 }
             };
 
