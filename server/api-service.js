@@ -252,6 +252,9 @@ ApiService.prototype._initModels = function() {
                         var paymentWithoutPoAmount = self._extractValueFromQuery(id, paymentWithoutPoAmountPerCategory);
                         var paymentWithPoAmount = self._extractValueFromQuery(id, paymentWithPoAmountPerCategory);
 
+                        // the total cost of all pos
+                        matchingRecord.totalCommitted = poCost;
+
                         // the total amount paid is what we paid with a PO and without a PO
                         matchingRecord.totalPaid = paymentWithoutPoAmount + paymentWithPoAmount;
 

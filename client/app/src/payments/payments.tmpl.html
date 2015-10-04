@@ -17,7 +17,7 @@
                 <td>{{vm.getPaymentSupplier(payment).attributes.name}}</td>
                 <td>{{vm.getPaymentPurchaseOrder(payment).attributes.delivery}}</td>
                 <td>{{payment.attributes.description}}</td>
-                <td>{{payment.attributes.amount}}</td>
+                <td>{{payment.attributes.amount | nis}}</td>
                 <td>{{payment.attributes.paidAt | date: 'mediumDate'}}</td>
                 <td>{{payment.attributes.createdAt | date: 'medium'}}</td>
             </tr>

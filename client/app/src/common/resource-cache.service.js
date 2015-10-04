@@ -3,9 +3,9 @@
 
     angular
         .module('poverty')
-        .service('ResourceCacheService', ['$log', 'Restangular', ResourceCacheService]);
+        .service('ResourceCacheService', ['$q', '$log', 'Restangular', ResourceCacheService]);
 
-    function ResourceCacheService($log, Restangular) {
+    function ResourceCacheService($q, $log, Restangular) {
 
         var resourceCache = {
             suppliers: {state: 'invalid', resources: []},
@@ -28,15 +28,23 @@
 
             loadResources: function (name, query) {
 
-                if (resourceCache[name].state === 'invalid') {
+                return $q(function(resolve, reject) {
 
-                    resourceCache[name].state = 'inProgress';
+                    if (resourceCache[name].state === 'invalid') {
 
-                    Restangular.all(name).getList(query).then(function (resources) {
-                        resourceCache[name].state = 'valid';
-                        resourceCache[name].resources = resources;
-                    });
-                }
+                        resourceCache[name].state = 'inProgress';
+
+                        Restangular.all(name).getList(query).then(function (resources) {
+                            resourceCache[name].state = 'valid';
+                            resourceCache[name].resources = resources;
+
+                            resolve(resources);
+                        }, reject);
+                    } else {
+
+                        resolve(resourceCache[name].resources);
+                    }
+                });
             },
 
             getResources: function (name) {

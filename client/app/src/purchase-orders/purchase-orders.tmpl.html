@@ -16,9 +16,9 @@
                     ng-click="vm.onRecordClick($event, purchaseOrder)">
                     <td>{{purchaseOrder.relationships.supplier.data.getIncluded().attributes.name}}</td>
                     <td>{{purchaseOrder.attributes.delivery}}</td>
-                    <td>{{purchaseOrder.attributes.cost}}</td>
-                    <td>{{purchaseOrder.attributes.totalPaid}}</td>
-                    <td>{{purchaseOrder.attributes.totalDebt}}</td>
+                    <td>{{purchaseOrder.attributes.cost | nis}}</td>
+                    <td>{{purchaseOrder.attributes.totalPaid | nis}}</td>
+                    <td>{{purchaseOrder.attributes.totalDebt | nis}}</td>
                     <td>{{purchaseOrder.attributes.createdAt | date: 'medium'}}</td>
                 </tr>
             </tbody>

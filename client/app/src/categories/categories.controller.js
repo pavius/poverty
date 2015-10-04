@@ -14,7 +14,23 @@
         vm.resourceCache = ResourceCacheService;
 
         function loadResources() {
-            vm.resourceCache.loadResources('categories');
+
+            vm.resourceCache.loadResources('categories').then(function(categories) {
+
+                vm.sum = {
+                    budget: 0,
+                    paid: 0,
+                    committed: 0,
+                    balance: 0
+                };
+
+                _.forEach(categories, function(category) {
+                    vm.sum.budget += category.attributes.budget;
+                    vm.sum.paid += category.attributes.totalPaid;
+                    vm.sum.committed += category.attributes.totalCommitted;
+                    vm.sum.balance += category.attributes.balance;
+                });
+            })
         }
 
         $scope.$on('category.new', function () {

@@ -5,19 +5,33 @@
             <tr md-disable-select>
                 <th name="Name"></th>
                 <th name="Budget" unit="NIS"></th>
+                <th name="Committed" unit="NIS"></th>
                 <th name="Paid" unit="NIS"></th>
                 <th name="Balance" unit="NIS"></th>
             </tr>
             </thead>
             <tbody>
-            <tr ng-repeat="category in vm.resourceCache.getResources('categories')"
-                ng-click="vm.onRecordClick($event, category)">
-                <td>{{category.attributes.name}}</td>
-                <td>{{category.attributes.budget}}</td>
-                <td>{{category.attributes.totalPaid}}</td>
-                <td>{{category.attributes.balance}}</td>
-            </tr>
+                <tr ng-repeat="category in vm.resourceCache.getResources('categories')"
+                    ng-click="vm.onRecordClick($event, category)">
+                    <td>{{category.attributes.name}}</td>
+                    <td>{{category.attributes.budget | nis}}</td>
+                    <td>{{category.attributes.totalCommitted | nis}}</td>
+                    <td>{{category.attributes.totalPaid | nis}}</td>
+                    <td>{{category.attributes.balance | nis}}</td>
+                </tr>
             </tbody>
+            <tfoot>
+                <tr>
+                    <td>Total:</td>
+                    <td>{{vm.sum.budget | nis}}</td>
+                    <td>{{vm.sum.committed | nis}}</td>
+                    <td>{{vm.sum.paid | nis}}</td>
+                    <td>{{vm.sum.balance | nis}}</td>
+                </tr>
+            </tfoot>
         </table>
     </md-data-table-container>
+    <md-content>
+
+    </md-content>
 </md-content>
