@@ -17,6 +17,8 @@
 
                 function _initializeRestangular() {
 
+                    var regexIso8601 = /^(\d{4}|\+\d{6})(?:-(\d{2})(?:-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})\.(\d{1,})(Z|([\-+])(\d{2}):(\d{2}))?)?)?)?$/;
+
                     RestangularProvider.setBaseUrl('http://poverty.localtunnel.me/api/');
 
                     // this is to set Access-Control-Allow-Credentials which apparently allows cookies in cross
@@ -29,10 +31,34 @@
                     // add a response interceptor
                     RestangularProvider.addResponseInterceptor(function (data, operation, what, url, response, deferred) {
 
+
+
                         if (data.data) {
                             var extractedData = data.data;
                             extractedData.meta = data.meta;
                             extractedData.included = data.included;
+
+                            function _convertDateStringsToDates(input) {
+                                // Ignore things that aren't objects.
+                                if (typeof input !== "object") return input;
+
+                                for (var key in input) {
+                                    if (!input.hasOwnProperty(key)) continue;
+
+                                    var value = input[key];
+                                    var match;
+                                    // Check for string properties which look like dates.
+                                    if (typeof value === "string" && (match = value.match(regexIso8601))) {
+                                        var milliseconds = Date.parse(match[0])
+                                        if (!isNaN(milliseconds)) {
+                                            input[key] = new Date(milliseconds);
+                                        }
+                                    } else if (typeof value === "object") {
+                                        // Recurse into object
+                                        _convertDateStringsToDates(value);
+                                    }
+                                }
+                            }
 
                             // call fn on any leaf of the object with a "type"
                             function _callOnTypedElements(elem, fn) {
@@ -65,6 +91,9 @@
                             _callOnTypedElements(data.data, function (elem) {
                                 _callOnTypedElements(elem.relationships, _attachInclusionFunction);
                             });
+
+                            // look for dates and convert them
+                            _convertDateStringsToDates(data.data);
 
                             return extractedData;
 

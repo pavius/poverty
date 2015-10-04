@@ -9,9 +9,9 @@
     "angular": "^1.4.x",
     "angular-animate": "^1.4.x",
     "angular-aria": "^1.4.x",
-    "angular-material": "^0.9.0",
+    "angular-material": "0.11.2",
     "ng-mfb": "~0.6.2",
-    "angular-material-data-table": "~0.8.11",
+    "angular-material-data-table": "0.8.14",
     "restangular": "~1.5.1",
     "sprintf": "~1.0.3",
     "pluralize": "~1.2.0",
@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "angular-material": "~0.9.4"
+  },
+  "resolutions": {
+    "angular": "^1.4.0"
   }
 }

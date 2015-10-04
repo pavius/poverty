@@ -19,7 +19,7 @@
                     <td>{{purchaseOrder.attributes.cost}}</td>
                     <td>{{purchaseOrder.attributes.totalPaid}}</td>
                     <td>{{purchaseOrder.attributes.totalDebt}}</td>
-                    <td>{{purchaseOrder.attributes.createdAt}}</td>
+                    <td>{{purchaseOrder.attributes.createdAt | date: 'medium'}}</td>
                 </tr>
             </tbody>
         </table>

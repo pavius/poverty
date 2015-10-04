@@ -21,7 +21,7 @@
                 <td>{{supplier.attributes.phoneNumber}}</td>
                 <td>{{supplier.attributes.totalPaid}}</td>
                 <td>{{supplier.attributes.totalDebt}}</td>
-                <td>{{supplier.attributes.createdAt}}</td>
+                <td>{{supplier.attributes.createdAt | date: 'medium'}}</td>
             </tr>
             </tbody>
         </table>

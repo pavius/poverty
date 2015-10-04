@@ -52,9 +52,11 @@
                 </div>
 
                 <div layout="row">
-                    <md-checkbox ng-model="vm.customController.hasPo" aria-label="Has PO">
+                    <md-checkbox ng-model="vm.customController.hasPo" aria-label="Has PO" flex="50">
                         Has Purchase Order
                     </md-checkbox>
+
+                    <md-datepicker ng-model="vm.resource.attributes.paidAt"></md-datepicker>
                 </div>
 
             </md-content>
