@@ -111,7 +111,7 @@ ApiService.prototype._initModels = function() {
     var Supplier = self._db.createModel('suppliers', {
         name: type.string(),
         email: type.string(),
-        category: type.string(),
+        categoryId: type.string(),
         phoneNumbers: [type.string()],
         createdAt: type.date().default(self._db.r.now())
     });
@@ -161,6 +161,10 @@ ApiService.prototype._initModels = function() {
     Payment.belongsTo(PurchaseOrder, 'purchaseOrder', 'purchaseOrderId', 'id');
     Payment.belongsTo(Supplier, 'supplier', 'supplierId', 'id');
     PurchaseOrder.hasMany(Payment, 'payments', 'id', 'purchaseOrderId');
+
+
+    Supplier.belongsTo(Category, 'category', 'categoryId', 'id');
+    Category.hasMany(Supplier, 'suppliers', 'id', 'categoryId');
 
     //
     // register the routes for the resources

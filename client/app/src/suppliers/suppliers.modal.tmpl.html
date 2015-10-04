@@ -15,9 +15,9 @@
                     <input ng-model="vm.resource.attributes.name">
                 </md-input-container>
                 <md-input-container flex="45">
-                    <md-select ng-model="vm.resource.attributes.category" placeholder="Category">
+                    <md-select ng-model="vm.resource.relationships.category.data.id" placeholder="Category">
                         <md-option ng-repeat="category in vm.relationships.category.values"
-                                   value="{{category.attributes.name}}">{{category.attributes.name}}
+                                   value="{{category.id}}">{{category.attributes.name}}
                         </md-option>
                     </md-select>
                 </md-input-container>

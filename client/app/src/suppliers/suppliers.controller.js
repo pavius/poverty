@@ -3,18 +3,21 @@
     angular
         .module('poverty')
         .controller('SuppliersController', [
-            '$rootScope', '$scope', 'CategoriesService', 'ObjectDialogService',
+            '$rootScope', '$scope', 'ObjectDialogService',
             'Restangular', 'ResourceCacheService', SuppliersController
         ]);
 
-    function SuppliersController($rootScope, $scope, CategoriesService, ObjectDialogService, Restangular, ResourceCacheService) {
+    function SuppliersController($rootScope, $scope, ObjectDialogService, Restangular, ResourceCacheService) {
 
         var vm = this;
         vm.order = 'attributes.createdAt';
         vm.resourceCache = ResourceCacheService;
 
         function loadResources() {
-            vm.resourceCache.loadResources('suppliers');
+            vm.resourceCache.loadResources('suppliers', {
+                'include': 'category',
+                'fields[category]': 'name'
+            });
         }
 
         $scope.$on('supplier.new', function () {
@@ -31,20 +34,24 @@
 
         vm.showDialog = function (mode, $event, supplier) {
 
-            var relationships = {
-                category: {
-                    type: 'category',
-                    values: CategoriesService.get()
-                }
-            };
+            // get a list of all suppliers (todo: can be cached somewhere)
+            Restangular.all('categories').getList({'fields[category]': 'name'}).then(function(categories) {
 
-            ObjectDialogService.show($event,
-                'suppliers',
-                './src/suppliers/suppliers.modal.tmpl.html',
-                mode,
-                supplier,
-                ResourceCacheService,
-                relationships).then(loadResources)
+                var relationships = {
+                    category: {
+                        type: 'category',
+                        values: categories
+                    }
+                };
+
+                ObjectDialogService.show($event,
+                    'suppliers',
+                    './src/suppliers/suppliers.modal.tmpl.html',
+                    mode,
+                    supplier,
+                    ResourceCacheService,
+                    relationships).then(loadResources);
+            });
         };
     }
 })();

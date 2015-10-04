@@ -16,7 +16,7 @@
             <tr ng-repeat="supplier in vm.resourceCache.getResources('suppliers') | orderBy: vm.order"
                 ng-click="vm.onRecordClick($event, supplier)">
                 <td>{{supplier.attributes.name}}</td>
-                <td>{{supplier.attributes.category}}</td>
+                <td>{{supplier.relationships.category.data.getIncluded().attributes.name}}</td>
                 <td>{{supplier.attributes.email}}</td>
                 <td>{{supplier.attributes.phoneNumber}}</td>
                 <td>{{supplier.attributes.totalPaid}}</td>
