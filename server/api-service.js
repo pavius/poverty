@@ -224,6 +224,9 @@ ApiService.prototype._initModels = function() {
 
             var r = self._db.r;
 
+            var poCostPerCategoryQuery = r.table('purchaseOrders')
+                .eqJoin('supplierId', r.table('suppliers')).zip().group('categoryId').sum('cost').run();
+
             var paymentWithoutPoAmountPerCategoryQuery = r.table('payments')
                 .eqJoin('supplierId', r.table('suppliers')).zip().group('categoryId').sum('amount').run();
 
@@ -231,10 +234,11 @@ ApiService.prototype._initModels = function() {
                 .eqJoin('purchaseOrderId', r.table('purchaseOrders')).zip()
                 .eqJoin('supplierId', r.table('suppliers')).zip().group('categoryId').sum('amount').run();
 
-            Promise.join(
+            Promise.join(poCostPerCategoryQuery,
                 paymentWithoutPoAmountPerCategoryQuery,
                 paymentWithPoAmountPerCategoryQuery,
-                function(paymentWithoutPoAmountPerCategory,
+                function(poCostPerCategory,
+                         paymentWithoutPoAmountPerCategory,
                          paymentWithPoAmountPerCategory) {
 
                     // iterate over the suppliers we found
@@ -243,14 +247,15 @@ ApiService.prototype._initModels = function() {
                         var id = matchingRecord.id;
 
                         // get values for this specific supplier
+                        var poCost = self._extractValueFromQuery(id, poCostPerCategory);
                         var paymentWithoutPoAmount = self._extractValueFromQuery(id, paymentWithoutPoAmountPerCategory);
                         var paymentWithPoAmount = self._extractValueFromQuery(id, paymentWithPoAmountPerCategory);
 
                         // the total amount paid is what we paid with a PO and without a PO
                         matchingRecord.totalPaid = paymentWithoutPoAmount + paymentWithPoAmount;
 
-                        // the total left is budget minus total paid
-                        matchingRecord.balance = matchingRecord.budget - matchingRecord.totalPaid;
+                        // the total left is budget minus the cost of outstanding POs and paid without POs
+                        matchingRecord.balance = matchingRecord.budget - poCost - paymentWithoutPoAmount;
                     });
 
                     resolve(matchingRecords);
