@@ -3,10 +3,10 @@
     angular
         .module('poverty')
         .controller('PaymentsController', [
-            '$q', '$scope', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', PaymentsController
+            '$q', '$scope', '$filter', 'ObjectDialogService', 'Restangular', 'ResourceCacheService', PaymentsController
         ]);
 
-    function PaymentsController($q, $scope, ObjectDialogService, Restangular, ResourceCacheService) {
+    function PaymentsController($q, $scope, $filter, ObjectDialogService, Restangular, ResourceCacheService) {
         var vm = this;
         vm.order = 'attributes.createdAt';
         vm.resourceCache = ResourceCacheService;
@@ -109,9 +109,9 @@
                     });
                 }
 
-                function getScanName(paymentResource, relationships, extension) {
+                function getAttachmentName(paymentResource, relationships, extension) {
 
-                    var scanName;
+                    var attachmentName;
 
                     // name starts with supplier. take the proper value according to the current setting of hasPo
                     if (vm.hasPo) {
@@ -121,23 +121,23 @@
                         var purchaseOrderId = paymentResource.relationships.purchaseOrder.data.id;
                         purchaseOrderName = relationships.purchaseOrder.getById(purchaseOrderId).attributes.delivery;
 
-                        scanName = sprintf('Supplier(%s)-PO(%s)', supplierName, purchaseOrderName);
+                        attachmentName = sprintf('Supplier(%s)-PO(%s)', supplierName, purchaseOrderName);
 
                     } else {
 
                         var supplierName = relationships.supplier.getById(paymentResource.relationships.supplier.data.id).attributes.name;
-                        scanName = sprintf('Supplier(%s)', supplierName);
+                        attachmentName = sprintf('Supplier(%s)', supplierName);
                     }
 
                     // add date, amount, extension
-                    scanName += sprintf('-Amount(%s)', paymentResource.attributes.amount);
-                    scanName += sprintf('-At(%s)', Date.now());
-                    scanName += '.' + extension;
+                    attachmentName += sprintf('-Amount(%s)', paymentResource.attributes.amount);
+                    attachmentName += sprintf('-At(%s)', $filter('date')(paymentResource.attributes.paidAt, 'mediumDate'));
+                    attachmentName += '.' + extension;
 
                     // replace spaces with underscores
-                    scanName = scanName.replace(/ /g, '_');
+                    attachmentName = attachmentName.replace(/ /g, '_');
 
-                    return scanName;
+                    return attachmentName;
                 }
 
                 vm.uploadAttachment = function (paymentResource, file, relationships) {
@@ -155,7 +155,7 @@
                         var attachmentResource = {
                             data: {
                                 attributes: {
-                                    title: getScanName(paymentResource, relationships, extension),
+                                    title: getAttachmentName(paymentResource, relationships, extension),
                                     type: "media",
                                     contentType: file.type,
                                     contents: arrayBufferToBase64(reader.result)
@@ -174,7 +174,7 @@
                     var attachmentResource = {
                         data: {
                             attributes: {
-                                title: getScanName(paymentResource, relationships, 'pdf'),
+                                title: getAttachmentName(paymentResource, relationships, 'pdf'),
                                 type: "scan"
                             }
                         }
@@ -195,8 +195,8 @@
 
                 vm.allowModifyAttachment = function (resource) {
 
-                    // if there's an amount and a supplier OR a purchase order
-                    return _.get(resource, 'attributes.amount') &&
+                    // if there's an amount+paidAt and a supplier OR a purchase order
+                    return _.get(resource, 'attributes.amount') && _.get(resource, 'attributes.paidAt') &&
                         (_.get(resource, 'relationships.supplier.data.id') || _.get(resource, 'relationships.purchaseOrder.data.id'));
                 }
             };
