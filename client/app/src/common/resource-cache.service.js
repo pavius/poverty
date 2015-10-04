@@ -10,7 +10,8 @@
         var resourceCache = {
             suppliers: {state: 'invalid', resources: []},
             purchaseOrders: {state: 'invalid', resources: []},
-            payments: {state: 'invalid', resources: []}
+            payments: {state: 'invalid', resources: []},
+            categories: {state: 'invalid', resources: []}
         };
 
         function invalidateAllCache() {

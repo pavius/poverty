@@ -36,6 +36,10 @@
 
             <md-tabs md-dynamic-height md-border-bottom>
 
+                <md-tab label="Categories" md-on-select="$broadcast('category.show')">
+                    <div ng-include src="'src/categories/categories.tmpl.html'"></div>
+                </md-tab>
+
                 <md-tab label="Suppliers" md-on-select="$broadcast('supplier.show')">
                     <div ng-include src="'src/suppliers/suppliers.tmpl.html'"></div>
                 </md-tab>
@@ -71,6 +75,7 @@
 <script src="./src/common/resource-cache.service.js"></script>
 <script src="./src/common/categories.service.js"></script>
 <script src="./src/dashboard/dashboard.controller.js"></script>
+<script src="./src/categories/categories.controller.js"></script>
 <script src="./src/suppliers/suppliers.controller.js"></script>
 <script src="./src/purchase-orders/purchase-orders.controller.js"></script>
 <script src="./src/payments/payments.controller.js"></script>

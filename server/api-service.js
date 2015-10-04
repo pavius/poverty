@@ -134,7 +134,8 @@ ApiService.prototype._initModels = function() {
     });
 
     var Category = self._db.createModel('categories', {
-        name: type.string()
+        name: type.string(),
+        budget: type.number()
     });
 
     self.User = self._db.createModel('users', {

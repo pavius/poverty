@@ -7,6 +7,8 @@
 
     function CategoriesService(Restangular) {
 
+        // this service should not exist
+
         var self = this;
         self.categories = [];
 

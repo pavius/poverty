@@ -127,6 +127,11 @@
 
         vm.menuButtons = [
             {
+                label: 'Category',
+                icon: 'ion-pricetag',
+                event: 'category.new'
+            },
+            {
                 label: 'Supplier',
                 icon: 'ion-person',
                 event: 'supplier.new'

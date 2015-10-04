@@ -1,0 +1,23 @@
+<md-content layout="row" ng-controller="CategoriesController as vm">
+    <md-data-table-container>
+        <table md-data-table>
+            <thead>
+            <tr md-disable-select>
+                <th name="Name"></th>
+                <th name="Budget" unit="NIS"></th>
+                <th name="Spent" unit="NIS"></th>
+                <th name="Left" unit="NIS"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr ng-repeat="category in vm.resourceCache.getResources('categories')"
+                ng-click="vm.onRecordClick($event, category)">
+                <td>{{category.attributes.name}}</td>
+                <td>{{category.attributes.budget}}</td>
+                <td>{{category.attributes.spent}}</td>
+                <td>{{category.attributes.left}}</td>
+            </tr>
+            </tbody>
+        </table>
+    </md-data-table-container>
+</md-content>
