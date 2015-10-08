@@ -1,5 +1,6 @@
 'use strict';
 
+var _ = require('lodash');
 var request = require('request');
 var Promise = require('bluebird');
 var uuid = require('node-uuid');
@@ -7,6 +8,7 @@ var google = require('googleapis');
 var PDFImage = require("pdf-image").PDFImage;
 var tmp = require('tmp');
 var fs = require('fs');
+var refresh = require('passport-oauth2-refresh');
 
 
 function Attachments(logger, scant_address) {
@@ -22,44 +24,28 @@ Attachments.prototype.getDirectoryId = function(user) {
 
     self._logger.debug({user: user.name}, 'Getting poverty folder');
 
-    // create the google api for the user, using the credentials stored in user
-    var googleApi = self._createGoogleApi(user);
-
     return new Promise(function(resolve, reject) {
 
         // look for the poverty application directory
-        googleApi.drive.files.list({
+        self._callGoogleApi(user, 'drive.files.list', {
             q: 'title = ".poverty"'
-        }, function (error, resource) {
-
-            // check if we failed to list files which match ".poverty"
-            if (error) {
-                self._logger.debug({error: error.message}, 'Failed to list folders');
-                return reject(error);
-            }
+        }).then(function(resource) {
 
             // did we find a file?
             if (resource.items.length === 0) {
 
                 self._logger.debug('Poverty folder doesn\'t exist, creating');
 
-                // create a directory called ".poverty" at the root
-                googleApi.drive.files.insert({
+                self._callGoogleApi(user, 'drive.files.insert', {
                     resource: {
                         title: '.poverty',
                         mimeType: 'application/vnd.google-apps.folder'
                     }
-                }, function (error, resource) {
-
-                    // check if we failed to create the dire3ctory
-                    if (error) {
-                        self._logger.warn({error: error.message}, 'Failed to create poverty folder');
-                        return reject(error);
-                    }
+                }).then(function(resource) {
 
                     self._logger.debug({id: user.povertyFolderId}, 'Poverty folder created');
                     return resolve(resource.id);
-                });
+                }, reject);
 
             // poverty folder exists
             } else {
@@ -72,7 +58,7 @@ Attachments.prototype.getDirectoryId = function(user) {
                 self._logger.debug({id: user.povertyFolderId}, 'Poverty folder exists');
                 return resolve(resource.items[0].id);
             }
-        });
+        }, reject);
     });
 };
 
@@ -88,7 +74,7 @@ Attachments.prototype.commit = function(user, stagedAttachmentId) {
             return reject(new Error('Staged attachment doesn\'t exist'));
 
         // upload this to google drive
-        self._createGoogleApi(user).drive.files.insert({
+        self._callGoogleApi(user, 'drive.files.insert', {
             resource: {
                 parents: [{
                     "kind": "drive#fileLink",
@@ -101,12 +87,7 @@ Attachments.prototype.commit = function(user, stagedAttachmentId) {
                 mimeType: stagedAttachment.contentType,
                 body: stagedAttachment.media
             }
-        }, function(error, resource) {
-
-            if (error) {
-                self._logger.warn({error: error.message}, 'Failed to write file to Google Drive');
-                return reject(error);
-            }
+        }).then(function(resource) {
 
             self._logger.debug({id: resource.id}, 'File created successfully on Google Drive');
 
@@ -115,7 +96,7 @@ Attachments.prototype.commit = function(user, stagedAttachmentId) {
 
             // we're done
             return resolve([resource.id, resource.alternateLink, resource.fileSize, stagedAttachment.preview]);
-        });
+        }, reject);
     });
 };
 
@@ -140,6 +121,67 @@ Attachments.prototype.initRoutes = function(router) {
         }, function(error) {
 
             response.sendStatus(500);
+        });
+    });
+};
+
+Attachments.prototype._callGoogleApi = function(user, apiName, params, dontRetry) {
+
+    var self = this;
+
+    return new Promise(function(resolve, reject) {
+
+        // get the api function by name so that we can call it
+        var apiFunction = _.get(self._getGoogleApi(user), apiName);
+
+        // call the api
+        apiFunction(params, function(error, resource) {
+
+            // was there an error in the request?
+            if (error) {
+
+                // was the error an issue with authentication?
+                if (error.code === 401 && !dontRetry) {
+
+                    self._logger.debug('Google returned authentication error, refreshing token');
+
+                    // refresh the token, trigger a save to the creds and then re-call the request
+                    // if it fails, don't try again (perhaps use "retry" flag or something)
+                    refresh.requestNewAccessToken('google', user.refreshToken, function(error, accessToken) {
+
+                        if (error || !accessToken) {
+
+                            self._logger.warn({error: error.message}, 'Failed to refresh Google token');
+                            reject(error);
+                        }
+
+                        self._logger.debug('Token refreshed successfully, saving in user');
+
+                        // clear the google api object, so that it will be created next time
+                        self._googleApi = null;
+
+                        // update teh access token both in googleApi and in the user
+                        user.accessToken = accessToken;
+
+                        // update the user in teh database
+                        user.save().then(function() {
+
+                            self._logger.debug('New access token saved in user');
+
+                            // retry the request
+                            self._callGoogleApi(user, apiName, params, true).then(resolve, reject);
+
+                        }, reject);
+                    });
+
+                // not an authentication problem
+                } else return reject(error);
+
+            } else {
+
+                // request was successful (after re-auth, perhaps), return the response
+                resolve(resource);
+            }
         });
     });
 };
@@ -228,22 +270,27 @@ Attachments.prototype._create = function(user, attributes) {
     });
 };
 
-Attachments.prototype._createGoogleApi = function(user) {
+Attachments.prototype._getGoogleApi = function(user) {
 
     var self = this;
-    var googleApi = {};
 
-    // create an oauth client with pre-loaded tokens
-    var oauth2Client = new google.auth.OAuth2();
-    oauth2Client.credentials = {
-        access_token: user.token,
-        refresh_token: user.refreshToken
-    };
+    // have we created it yet?
+    if (!self._googleApi) {
 
-    // build API
-    googleApi.drive = google.drive({version: 'v2', auth: oauth2Client});
+        self._googleApi = {};
 
-    return googleApi;
+        // create an oauth client with pre-loaded tokens
+        var oauth2Client = new google.auth.OAuth2();
+        oauth2Client.credentials = {
+            access_token: user.accessToken,
+            refresh_token: user.refreshToken
+        };
+
+        // build API
+        self._googleApi.drive = google.drive({version: 'v2', auth: oauth2Client});
+    }
+
+    return self._googleApi;
 }
 
 Attachments.prototype._getMedia = function(attributes) {

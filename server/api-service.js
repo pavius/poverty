@@ -15,6 +15,7 @@ var RDBStore = require('express-session-rethinkdb')(expressSession);
 var Attachments = require('./attachments')
 var Promise = require('bluebird');
 var pluralize = require('pluralize');
+var refresh = require('passport-oauth2-refresh');
 
 
 function ApiService(logger, db, rootUrl, scant_address, authInfo) {
@@ -142,7 +143,7 @@ ApiService.prototype._initModels = function() {
     self.User = self._db.createModel('users', {
         name: type.string(),
         email: type.string(),
-        token: type.string(),
+        accessToken: type.string(),
         refreshToken: type.string(),
         lastLogin: type.date()
     });
@@ -892,14 +893,14 @@ ApiService.prototype._findUserByEmail = function(email) {
     });
 };
 
-ApiService.prototype._onUserAuthentication = function(user, token, refreshToken) {
+ApiService.prototype._onUserAuthentication = function(user, accessToken, refreshToken) {
 
     var self = this;
 
     self._logger.debug({user: user.name}, 'User logged in');
 
     // update the user tokens
-    user.token = token;
+    user.accessToken = accessToken;
     user.refreshToken = refreshToken;
     user.lastLogin = new Date();
 
@@ -945,19 +946,21 @@ ApiService.prototype._initializeAuthentication = function() {
     // Login management
     //
 
-    passport.use(new passportGoogleOauth.OAuth2Strategy(self._getOauthInfo(),
-        function(token, refreshToken, profile, done) {
+    var strategy = new passportGoogleOauth.OAuth2Strategy(self._getOauthInfo(),
+        function(accessToken, refreshToken, profile, done) {
 
             // TODO: promise
             // find a user by email
             self._findUserByEmail(profile.emails[0].value).then(function(user) {
 
                 // handle user login - will save tokens, create directory if needed
-                self._onUserAuthentication(user, token, refreshToken).asCallback(done);
+                self._onUserAuthentication(user, accessToken, refreshToken).asCallback(done);
 
             }, done);
-        })
-    );
+        });
+
+    passport.use(strategy);
+    refresh.use(strategy);
 };
 
 module.exports = ApiService;
