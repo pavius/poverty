@@ -181,33 +181,31 @@ ApiService.prototype._initModels = function() {
     // Overridden events
     //
 
-    Payment.onBeforeCreate = function(model, request, response) {
+    var commitResourceAttachment = function(user, resource) {
 
         return new Promise(function(resolve, reject) {
 
-            var createdResource = request.body;
-
             // does the resource have an "attachment" relationship? If so, we need to remove it and commit
             // this staged attachment
-            if (createdResource.data.relationships && createdResource.data.relationships.attachment) {
+            if (resource.data.relationships && resource.data.relationships.attachment) {
 
                 // remove the attachment from the object, it's not supposed to be stored as a relationship
                 // in the database
-                var attachment = createdResource.data.relationships.attachment;
-                delete createdResource.data.relationships.attachment;
+                var attachment = resource.data.relationships.attachment;
+                delete resource.data.relationships.attachment;
 
                 // lets commit the attachment (creates a file for it in drive and returns info
-                self._attachments.commit(request.user, attachment.data.id).spread(function (fileId, url, size, preview) {
+                self._attachments.commit(user, attachment.data.id).spread(function (fileId, url, size, preview) {
 
                     // save the attachment file ID and URL
-                    createdResource.data.attributes.attachment = {
+                    resource.data.attributes.attachment = {
                         fileId: fileId,
                         size: size,
                         url: url,
                         preview: preview
                     };
 
-                    resolve(createdResource);
+                    resolve(resource);
 
                 }, function (error) {
 
@@ -215,9 +213,19 @@ ApiService.prototype._initModels = function() {
                     reject(error);
                 });
             } else {
-                resolve(createdResource);
+                resolve(resource);
             }
         });
+    };
+
+    Payment.onBeforeCreate = function(model, request, response) {
+
+        return commitResourceAttachment(request.user, request.body);
+    };
+
+    Payment.onBeforeUpdate = function(model, request, response) {
+
+        return commitResourceAttachment(request.user, request.body);
     };
 
     Category.onAfterGetList = function(model, request, response, matchingRecords) {
@@ -742,14 +750,17 @@ ApiService.prototype._handleUpdate = function(model, req, res, next) {
 
     var self = this;
 
-    model.get(req.params.id).then(function(matchingRecord) {
+    model.onBeforeUpdate(model, req, res).then(function(updatedRecord) {
 
-        matchingRecord.merge(self._deserializeResourceToRecord(model, req.body)).save().then(function(updatedRecord) {
+        model.get(req.params.id).then(function (matchingRecord) {
 
-            res.sendStatus(204);
+            matchingRecord.merge(self._deserializeResourceToRecord(model, updatedRecord)).save().then(function () {
+
+                res.sendStatus(204);
+            });
         });
 
-    }).error(self._handleError(res));
+    }).catch(self._handleError(res));
 };
 
 ApiService.prototype._handleDelete = function(model, req, res, next) {
@@ -784,6 +795,13 @@ ApiService.prototype._registerResourceEvents = function(model) {
 
         return new Promise(function(resolve, reject) {
             resolve(matchingRecords);
+        });
+    };
+
+    model.onBeforeUpdate = function(model, request, response) {
+
+        return new Promise(function(resolve, reject) {
+            resolve(request.body);
         });
     };
 };
